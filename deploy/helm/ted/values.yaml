@@ -1,0 +1,129 @@
+fullnameOverride: ""
+replicaCount: 1
+
+strategy:
+  type: Recreate
+
+image:
+  repository: ghcr.io/pepicrft/ted
+  tag: main
+  digest: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+host: ted.example.com
+publicOrigin: https://ted.example.com
+
+service:
+  port: 80
+  targetPort: 4000
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  tlsSecretName: ted-tls
+
+secrets:
+  envSecretName: ted-app-env
+
+analytics:
+  enabled: false
+  secretName: analytics-client
+
+extraEnv:
+  TED_ALLOWED_MCP_ORIGINS: https://ted.example.com
+  TED_EMAIL_FROM_ADDRESS: ted@pepicrft.me
+  TED_EMAIL_FROM_NAME: Ted
+  TED_SMTP_PORT: "587"
+  TED_SMTP_RELAY: smtp-relay.pepicrft.me
+
+temporaryFiles:
+  sizeLimit: 128Mi
+
+postgres:
+  enabled: true
+  clusterName: ted-postgres
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.3-standard-trixie
+  waitImage: postgres:18-alpine
+  certificateAuthoritySecretName: ""
+  user: ted
+  database: ted_prod
+  host: ""
+  appSecretName: ted-postgres-app
+  instances: 1
+  storage:
+    storageClass: ""
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 2Gi
+  nodeSelector: {}
+  tolerations: []
+  backup:
+    enabled: false
+    pluginName: barman-cloud.cloudnative-pg.io
+    objectStoreName: ted-postgres-backups
+    endpointURL: ""
+    bucketName: ""
+    secretName: ted-postgres-backups
+    retentionPolicy: 30d
+    schedule: "0 15 4 * * *"
+    immediate: true
+    reclaimPolicy: Retain
+    sidecarResources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+externalSecrets:
+  enabled: false
+  refreshInterval: 1h
+  secretStoreRef:
+    kind: ClusterSecretStore
+    name: default
+  appEnv:
+    itemKey: ted
+    fields:
+      TED_SECRET_KEY_BASE: SECRET_KEY_BASE
+      TED_API_KEY: API_KEY
+      TED_AGENT_AUTH_PRIVATE_KEY_PEM: AGENT_AUTH_PRIVATE_KEY_PEM
+      TED_TELEGRAM_BOT_TOKEN: TELEGRAM_BOT_TOKEN
+      TED_TELEGRAM_WEBHOOK_SECRET: TELEGRAM_WEBHOOK_SECRET
+      TED_LEGAL_OPERATOR_NAME: LEGAL_OPERATOR_NAME
+      TED_LEGAL_OPERATOR_ADDRESS: LEGAL_OPERATOR_ADDRESS
+      TED_LEGAL_CONTACT_EMAIL: LEGAL_CONTACT_EMAIL
+  postgres:
+    itemKey: ted
+    passwordField: POSTGRES_PASSWORD
+  imagePullSecret:
+    enabled: false
+    name: ghcr-pull-secret
+    registry: ghcr.io
+    itemKey: kubernetes
+    usernameField: GHCR_PULL_USERNAME
+    passwordField: GHCR_PULL_TOKEN
+
+resources:
+  requests:
+    cpu: 150m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

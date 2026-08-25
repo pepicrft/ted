@@ -1,0 +1,73 @@
+fullnameOverride: ted
+
+host: ted.pepicrft.me
+publicOrigin: https://ted.pepicrft.me
+
+imagePullSecrets:
+  - name: ghcr-pull-secret
+
+analytics:
+  enabled: true
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-cloudflare
+    external-dns.alpha.kubernetes.io/hostname: ted.pepicrft.me
+    external-dns.alpha.kubernetes.io/cloudflare-proxied: "true"
+  tlsSecretName: ted-pepicrft-me-tls
+
+extraEnv:
+  TED_ALLOWED_MCP_ORIGINS: https://ted.pepicrft.me
+  TED_EMAIL_FROM_ADDRESS: ted@pepicrft.me
+  TED_EMAIL_FROM_NAME: Ted
+  TED_SMTP_PORT: "587"
+  TED_SMTP_RELAY: smtp-relay.pepicrft.me
+  # Traces, metrics, and structured logs go to the shared Alloy collector in the
+  # observability namespace, which forwards to Tempo, Prometheus, and Loki.
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://observability-alloy.observability.svc.cluster.local:4318
+  OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+  OTEL_RESOURCE_ATTRIBUTES: service.namespace=ted,deployment.environment.name=production,k8s.namespace.name=ted
+  OTEL_SERVICE_NAME: ted
+
+nodeSelector:
+  node.cluster.x-k8s.io/pool: app
+
+postgres:
+  resources:
+    requests:
+      cpu: 250m
+      memory: 384Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  storage:
+    storageClass: hcloud-volumes
+    size: 20Gi
+  nodeSelector:
+    node.cluster.x-k8s.io/pool: stateful
+  tolerations:
+    - key: node.cluster.x-k8s.io/pool
+      operator: Equal
+      value: stateful
+      effect: NoSchedule
+  backup:
+    enabled: true
+    endpointURL: https://fsn1.your-objectstorage.com
+    bucketName: pepicrft-ted-postgres-backups
+
+externalSecrets:
+  enabled: true
+  secretStoreRef:
+    kind: ClusterSecretStore
+    # Legacy store alias for the Pepicrft cluster, not a Salibu-owned cluster.
+    name: salibu-production
+  appEnv:
+    itemKey: ted
+  postgres:
+    itemKey: ted
+    passwordField: POSTGRES_PASSWORD
+  imagePullSecret:
+    enabled: true
+    itemKey: kubernetes
