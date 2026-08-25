@@ -95,7 +95,7 @@ defmodule TedWeb.AuthMarkdownController do
       "expires_in": 3600,
       "scope": "#{scopes}",
       "identity_assertion": "eyJ...",
-      "assertion_expires": "2026-08-26T12:00:00Z"
+      "assertion_expires": "<date-time>"
     }
     ```
 

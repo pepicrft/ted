@@ -19,6 +19,10 @@ ingress:
   tlsSecretName: ted-pepicrft-me-tls
 
 extraEnv:
+  # The management Hermes instance re-exchanges this revocable assertion for
+  # one-hour, Model Context Protocol resource-bound access tokens. Rotate its
+  # claimed registration before the assertion expires.
+  TED_AGENT_AUTH_ASSERTION_TTL_SECONDS: "7776000"
   TED_ALLOWED_MCP_ORIGINS: https://ted.pepicrft.me
   TED_EMAIL_FROM_ADDRESS: ted@pepicrft.me
   TED_EMAIL_FROM_NAME: Ted

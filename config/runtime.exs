@@ -165,8 +165,10 @@ config :ted,
       System.get_env("TED_AGENT_AUTH_CLAIM_ATTEMPT_LIMIT", "5") |> String.to_integer(),
     sign_in_attempt_limit:
       System.get_env("TED_AGENT_AUTH_SIGN_IN_ATTEMPT_LIMIT", "10") |> String.to_integer(),
-    assertion_ttl_seconds: 86_400,
-    access_token_ttl_seconds: 3_600,
+    assertion_ttl_seconds:
+      System.get_env("TED_AGENT_AUTH_ASSERTION_TTL_SECONDS", "86400") |> String.to_integer(),
+    access_token_ttl_seconds:
+      System.get_env("TED_AGENT_AUTH_ACCESS_TOKEN_TTL_SECONDS", "3600") |> String.to_integer(),
     poll_interval_seconds: 5,
     maximum_auth_age_seconds:
       System.get_env("TED_AGENT_AUTH_MAXIMUM_AUTH_AGE_SECONDS", "3600")
