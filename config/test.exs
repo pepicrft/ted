@@ -3,8 +3,6 @@ import Config
 test_port = String.to_integer(System.get_env("TED_TEST_PORT", "4002"))
 
 config :ted,
-  api_key: "test",
-  api_key_user_id: "00000000-0000-0000-0000-000000000001",
   agent_auth_sweeper: false,
   telegram: [bot_token: "test-token", webhook_secret: "test-secret"],
   rate_limits: [

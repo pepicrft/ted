@@ -36,7 +36,7 @@ defmodule TedWeb.DiscoveryController do
 
   operation :event_notify,
     operation_id: "receive_agent_security_event",
-    summary: "Receive a provider security event when that optional flow is enabled",
+    summary: "Reject provider security events because that flow is disabled",
     request_body: {"Security event", "application/secevent+jwt", %Schema{type: :string}},
     responses: [
       bad_request: {"Events are not enabled", "application/json", %Schema{type: :object}}
@@ -77,12 +77,9 @@ defmodule TedWeb.DiscoveryController do
         identity_endpoint: origin <> "/agent/identity",
         claim_endpoint: origin <> "/agent/identity/claim",
         events_endpoint: origin <> "/agent/event/notify",
-        identity_types_supported: ["anonymous", "identity_assertion", "service_auth"],
-        anonymous: %{pre_claim_scopes: AgentAuth.pre_claim_scopes()},
-        identity_assertion: %{
-          assertion_types_supported: [AgentAuth.identity_assertion_type()]
-        },
-        events_supported: [AgentAuth.revocation_event()]
+        identity_types_supported: ["service_auth"],
+        identity_assertion: %{assertion_types_supported: []},
+        events_supported: []
       }
     })
   end
@@ -118,33 +115,9 @@ defmodule TedWeb.DiscoveryController do
   end
 
   def event_notify(conn, _params) do
-    with {:ok, token, conn} <- security_event_token(conn),
-         {:ok, _count} <-
-           AgentAuth.process_security_event(token,
-             index: conn.private[:ted_index] || Ted.Index.context(),
-             issuer: PublicOrigin.from_conn(conn)
-           ) do
-      send_resp(conn, 202, "")
-    else
-      {:error, reason, conn} ->
-        conn
-        |> put_status(400)
-        |> json(%{err: to_string(reason), description: "The security event was rejected."})
-
-      {:error, reason} ->
-        conn
-        |> put_status(400)
-        |> json(%{err: to_string(reason), description: "The security event was rejected."})
-    end
-  end
-
-  defp security_event_token(conn) do
-    case Plug.Conn.read_body(conn) do
-      {:ok, body, conn} when byte_size(body) > 0 -> {:ok, String.trim(body), conn}
-      {:ok, _body, conn} -> {:error, :invalid_request, conn}
-      {:more, _body, conn} -> {:error, :invalid_request, conn}
-      {:error, reason} -> {:error, reason, conn}
-    end
+    conn
+    |> put_status(400)
+    |> json(%{err: "unsupported_event", description: "No events are advertised."})
   end
 
   defp protected_resource_document(origin) do

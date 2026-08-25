@@ -12,8 +12,8 @@ The name and warm coaching spirit reference [Ted Lasso](https://tv.apple.com/us/
 - Reviews trends over a defined window, records confidence and rationale, and changes at most one major plan variable at a time.
 - Pauses progression when a check-in contains a meaningful pain signal.
 - Exposes one shared operation catalog through an [OpenAPI](https://www.openapis.org/)-described web interface and a [Model Context Protocol](https://modelcontextprotocol.io/) server.
-- Works directly as a Telegram bot.
-- Implements all three [auth.md](https://workos.com/auth-md/docs) registration entry points: provider-verified identity assertions, email claims, and anonymous starts.
+- Can optionally receive commands as a Telegram bot.
+- Implements the [auth.md](https://workos.com/auth-md/docs) `service_auth` registration and user-claim flow. Agents receive only short-lived, scoped bearer credentials after the person confirms access.
 
 The research behind the first coaching rules, their limitations, and the exact implementation mapping live in [docs/evidence.md](docs/evidence.md).
 
@@ -41,7 +41,7 @@ Useful routes:
 - `/auth.md` explains agent registration.
 - `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` provide authorization discovery.
 - `/mcp` serves the Model Context Protocol.
-- `/telegram/webhook` receives Telegram updates.
+- `/telegram/webhook` receives Telegram updates when the optional integration is configured.
 - `/health` reports service and database readiness.
 
 Reset and seed the development database with two isolated example people:
@@ -58,21 +58,9 @@ mise exec -- mix precommit
 
 ## Important configuration
 
-Production reads `TED_*` environment variables. Required secrets include the database address, Phoenix secret, application key, and service assertion signing key. Telegram requires `TED_TELEGRAM_BOT_TOKEN` and `TED_TELEGRAM_WEBHOOK_SECRET`.
+Production reads `TED_*` environment variables. Required secrets are the database address, Phoenix signing secret, and auth.md service-assertion signing key. Ted does not have an administrative application key. Access is granted through auth.md and bound to the authenticated person.
 
-Trusted auth.md providers are configured as a JavaScript Object Notation array in `TED_AGENT_AUTH_TRUSTED_PROVIDERS_JSON`:
-
-```json
-[
-  {
-    "issuer": "https://agent-provider.example.com",
-    "jwks_uri": "https://agent-provider.example.com/.well-known/jwks.json",
-    "client_ids": ["ted-production"]
-  }
-]
-```
-
-Each provider assertion is checked for issuer, signature, audience, expiry, authentication freshness, verified email, allowed client, and replay. Provider revocation events invalidate the registration and every access token derived from it.
+The Telegram integration is optional. Set `TED_TELEGRAM_BOT_TOKEN` and `TED_TELEGRAM_WEBHOOK_SECRET` only when enabling it.
 
 ## Deploy your own instance
 
@@ -93,7 +81,7 @@ extraEnv:
   TED_ALLOWED_MCP_ORIGINS: https://ted.example.com
 ```
 
-Provide the required database, Phoenix, operator, agent-signing, and optional Telegram secrets through your cluster's secret manager. Then install the chart:
+Provide the required database, Phoenix, and agent-signing secrets through your cluster's secret manager. Then install the chart:
 
 ```sh
 helm upgrade --install ted deploy/helm/ted \

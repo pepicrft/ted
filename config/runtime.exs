@@ -1,20 +1,5 @@
 import Config
 
-api_key =
-  case {config_env(), System.get_env("TED_API_KEY")} do
-    {:prod, nil} ->
-      raise "environment variable TED_API_KEY is missing"
-
-    {:prod, value} when byte_size(value) < 32 ->
-      raise "TED_API_KEY must contain at least 32 bytes"
-
-    {_environment, nil} ->
-      "development"
-
-    {_environment, value} ->
-      value
-  end
-
 port_variable = if config_env() == :test, do: "TED_TEST_PORT", else: "TED_PORT"
 default_port = if config_env() == :test, do: "4002", else: "4000"
 port = System.get_env(port_variable, default_port) |> String.to_integer()
@@ -93,6 +78,7 @@ legal = [
 
 if config_env() == :prod do
   database_url = System.fetch_env!("TED_DATABASE_URL")
+  secret_key_base = System.fetch_env!("TED_SECRET_KEY_BASE")
 
   database_transport_security =
     case System.get_env("TED_DATABASE_SSL", "true") do
@@ -123,7 +109,8 @@ if config_env() == :prod do
     pool_size: System.get_env("TED_POOL_SIZE", "10") |> String.to_integer(),
     socket_options: socket_options
 
-  config :ted, TedWeb.Endpoint, secret_key_base: System.fetch_env!("TED_SECRET_KEY_BASE")
+  config :ted, TedWeb.Endpoint, secret_key_base: secret_key_base
+  config :ted, :agent_auth, user_code_hmac_key: secret_key_base
 
   config :ted, Ted.Mailer,
     adapter: Swoosh.Adapters.SMTP,
@@ -136,8 +123,6 @@ if config_env() == :prod do
 end
 
 config :ted,
-  api_key: api_key,
-  api_key_user_id: System.get_env("TED_API_KEY_USER_ID", "00000000-0000-0000-0000-000000000001"),
   allowed_mcp_origins: allowed_mcp_origins,
   email_from:
     {System.get_env("TED_EMAIL_FROM_NAME", "Ted"),

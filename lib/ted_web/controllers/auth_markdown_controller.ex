@@ -22,7 +22,7 @@ defmodule TedWeb.AuthMarkdownController do
     document = """
     # auth.md
 
-    Ted is a headless strength and nutrition coach. The resource server and authorization server are both `#{origin}`. This document implements the [auth.md protocol](https://workos.com/auth-md/docs/auth-md). Structured discovery metadata is authoritative if it conflicts with this prose.
+    Ted supports agent registration for its headless strength and nutrition coaching service. The resource server and authorization server are both `#{origin}`. This document implements the [auth.md protocol](https://workos.com/auth-md/docs/auth-md). The structured protected resource metadata is authoritative if it differs from this document.
 
     ## 1. Discover
 
@@ -33,34 +33,17 @@ defmodule TedWeb.AuthMarkdownController do
     WWW-Authenticate: Bearer resource_metadata="#{origin}/.well-known/oauth-protected-resource"
     ```
 
-    Fetch `#{origin}/.well-known/oauth-protected-resource`, or use `#{origin}/.well-known/oauth-protected-resource/mcp` when the target is the [Model Context Protocol](https://modelcontextprotocol.io/) endpoint. Read `resource`, `resource_name`, `authorization_servers`, `scopes_supported`, and `bearer_methods_supported`. Then fetch `#{origin}/.well-known/oauth-authorization-server` and read `issuer`, `token_endpoint`, `revocation_endpoint`, `grant_types_supported`, and the full `agent_auth` object: `skill`, `identity_endpoint`, `claim_endpoint`, `events_endpoint`, `identity_types_supported`, `identity_assertion.assertion_types_supported`, and `events_supported`.
+    Fetch `#{origin}/.well-known/oauth-protected-resource` for the [Representational State Transfer interface](https://developer.mozilla.org/en-US/docs/Glossary/REST), or `#{origin}/.well-known/oauth-protected-resource/mcp` for the [Model Context Protocol](https://modelcontextprotocol.io/) server. Read `resource`, `resource_name`, `authorization_servers`, `scopes_supported`, and `bearer_methods_supported`.
+
+    Fetch `#{origin}/.well-known/oauth-authorization-server`. Read `issuer`, `token_endpoint`, `revocation_endpoint`, `grant_types_supported`, and the complete `agent_auth` object. It describes `skill`, `identity_endpoint`, `claim_endpoint`, `events_endpoint`, `identity_types_supported`, `identity_assertion.assertion_types_supported`, and `events_supported`.
 
     ## 2. Pick a method
 
-    1. If the agent provider can mint an audience-bound Identity and Authorization Grant for `#{origin}`, use `identity_assertion`. Confirm its assertion type is advertised first.
-    2. If the agent knows the person's email, use `service_auth`. The person must complete the claim ceremony before use.
-    3. If neither is available, use `anonymous`. It can connect with the limited `#{Enum.join(AgentAuth.pre_claim_scopes(), " ")}` scope, but it cannot read or change coaching records before claim.
+    Ted supports `service_auth`. Use it when the person gives you their email and consents to connect. The person must sign in or create an account on a Ted-owned page before access is granted.
 
-    ## 3. Register
+    `identity_assertion` and `anonymous` are not enabled. Their registration errors are `identity_assertion_not_enabled` and `anonymous_not_enabled`.
 
-    ### 3a. Provider-verified identity assertion
-
-    ```http
-    POST #{origin}/agent/identity
-    Content-Type: application/json
-
-    {"type":"identity_assertion","assertion_type":"#{AgentAuth.identity_assertion_type()}","assertion":"<provider_assertion>"}
-    ```
-
-    A clean match returns:
-
-    ```json
-    {"registration_id":"<id>","registration_type":"identity_assertion","identity_assertion":"<service_assertion>","assertion_expires":"<date-time>","scopes":#{scope_list}}
-    ```
-
-    An existing account without a prior provider link returns `401 interaction_required` plus claim materials. A stale provider authentication returns `401 login_required`.
-
-    ### 3b. Email claim
+    ## 3. Register with service_auth
 
     ```http
     POST #{origin}/agent/identity
@@ -69,50 +52,58 @@ defmodule TedWeb.AuthMarkdownController do
     {"type":"service_auth","login_hint":"user@example.com"}
     ```
 
-    ```json
-    {"registration_id":"<id>","registration_type":"service_auth","claim_url":"#{origin}/agent/identity/claim","claim_token":"<private_token>","claim_token_expires":"<date-time>","post_claim_scopes":#{scope_list},"claim":{"user_code":"123456","expires_in":600,"verification_uri":"#{origin}/agent/identity/claim?claim_attempt_token=<token>","interval":5}}
-    ```
-
-    ### 3c. Anonymous start
-
-    ```http
-    POST #{origin}/agent/identity
-    Content-Type: application/json
-
-    {"type":"anonymous"}
-    ```
+    A successful response has this shape and does not contain an access token or identity assertion:
 
     ```json
-    {"registration_id":"<id>","registration_type":"anonymous","identity_assertion":"<pre_claim_service_assertion>","assertion_expires":"<date-time>","pre_claim_scopes":["mcp"],"claim_url":"#{origin}/agent/identity/claim","claim_token":"<private_token>","claim_token_expires":"<date-time>","post_claim_scopes":#{scope_list}}
+    {
+      "registration_id": "reg_...",
+      "registration_type": "service_auth",
+      "claim_url": "#{origin}/agent/identity/claim",
+      "claim_token": "clm_...",
+      "claim_token_expires": "2026-08-26T12:00:00Z",
+      "post_claim_scopes": #{scope_list},
+      "claim": {
+        "user_code": "123456",
+        "expires_in": 600,
+        "verification_uri": "#{origin}/agent/identity/claim?claim_attempt_token=cla_...",
+        "interval": 5
+      }
+    }
     ```
 
-    ## 4. Claim ceremony
+    Keep `claim_token` private and in memory until the ceremony finishes. Show `claim.user_code` and `claim.verification_uri` to the person in one message. Tell them to open the link, sign in or create their account, verify the account email, and enter the code there. Never ask them to send the code back to you. Ted never emails this code.
 
-    Email registrations already contain a `claim` block. To claim an anonymous registration:
+    ## 4. Complete the claim ceremony
 
-    ```http
-    POST #{origin}/agent/identity/claim
-    Content-Type: application/json
+    The person opens `verification_uri`. Ted requires sign-in or sign-up for exactly the normalized `login_hint` email. For an unverified account, Ted emails a separate one-time verification link. The signed-in account and its verified email are checked when the claim page is rendered and again when the code is submitted.
 
-    {"claim_token":"<private_token>","email":"user@example.com"}
-    ```
-
-    Keep `claim_token` private. Show `verification_uri` and `user_code` together. Tell the person to open the link, authenticate on Ted, and type the code there. Never ask the person to send the code back to the agent.
-
-    Poll no faster than the returned `interval`:
+    Poll no faster than `claim.interval`:
 
     ```http
     POST #{origin}/oauth2/token
     Content-Type: application/x-www-form-urlencoded
 
-    grant_type=#{AgentAuth.claim_grant()}&claim_token=<private_token>
+    grant_type=#{AgentAuth.claim_grant()}&claim_token=<claim_token>
     ```
 
-    `authorization_pending` means wait. `slow_down` means increase the polling interval. Success returns a standard token response plus `identity_assertion` and `assertion_expires`. For an anonymous registration, that new assertion replaces the pre-claim assertion and pre-claim access tokens are revoked.
+    While confirmation is pending, Ted returns `authorization_pending`. Success returns a bearer access token and a service-signed identity assertion:
 
-    ## 5. Exchange the assertion
+    ```json
+    {
+      "access_token": "tat_...",
+      "token_type": "Bearer",
+      "expires_in": 3600,
+      "scope": "#{scopes}",
+      "identity_assertion": "eyJ...",
+      "assertion_expires": "2026-08-26T12:00:00Z"
+    }
+    ```
 
-    Use the [JavaScript Object Notation Web Token bearer grant](https://www.rfc-editor.org/rfc/rfc7523) and optionally pin the token to the coaching or Model Context Protocol resource:
+    The access token in the claim response is bound to `#{origin}`. Do not use it for the Model Context Protocol. Exchange the identity assertion as shown below with `resource=#{origin}/mcp` first.
+
+    ## 5. Exchange the identity assertion
+
+    Ted uses the [JavaScript Object Notation Web Token bearer grant](https://www.rfc-editor.org/rfc/rfc7523). Exchange the same identity assertion for new access tokens until the assertion expires. Ted never issues a refresh token.
 
     ```http
     POST #{origin}/oauth2/token
@@ -121,33 +112,32 @@ defmodule TedWeb.AuthMarkdownController do
     grant_type=#{AgentAuth.jwt_bearer_grant()}&assertion=<identity_assertion>&resource=#{origin}/mcp
     ```
 
-    ```json
-    {"access_token":"<token>","token_type":"Bearer","expires_in":3600,"scope":"#{scopes}"}
-    ```
+    Use `resource=#{origin}` for the Representational State Transfer interface and `resource=#{origin}/mcp` for the Model Context Protocol. A token is accepted only by the resource for which it was issued.
 
-    ## 6. Use and refresh
+    ## 6. Use the access token
 
-    Send `Authorization: Bearer <access_token>`. Use the operation catalog at `#{origin}/openapi.json` or the Model Context Protocol endpoint at `#{origin}/mcp`. When the access token expires, exchange the same identity assertion again. There is no refresh token. When the assertion expires or exchange returns `invalid_grant`, restart registration.
+    Send `Authorization: Bearer <access_token>`. The [OpenAPI](https://www.openapis.org/) document is at `#{origin}/openapi.json`, interactive documentation is at `#{origin}/docs`, and the Model Context Protocol endpoint is at `#{origin}/mcp`.
 
-    Coach only from recorded facts and explicit objectives. Never diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measurement. Pause progression and encourage qualified professional care for meaningful pain, disordered eating, pregnancy, or another concern outside ordinary coaching.
+    Use the operation catalog to record the person's profile, objectives, check-ins, meals, workouts, and plans. Coach only from recorded facts and explicit objectives. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measurement. Meaningful pain stops progression and should prompt qualified professional care.
 
     ## 7. Errors
 
     | Endpoint | Error | Agent action |
     | --- | --- | --- |
-    | `/agent/identity` | `invalid_issuer`, `invalid_signature`, `expired`, `replay_detected`, `invalid_audience`, `invalid_client_id`, `missing_verified_email`, `invalid_request` | Correct or renew the provider assertion. Stop on an untrusted issuer. |
-    | `/agent/identity` | `anonymous_not_enabled`, `identity_assertion_not_enabled`, `service_auth_not_enabled` | Pick an advertised method. |
-    | `/agent/identity` | `interaction_required` | Hand the returned claim ceremony to the person. |
-    | `/agent/identity` | `login_required` | Ask the provider to reauthenticate the person and mint a fresh assertion. |
-    | `/agent/identity/claim` | `invalid_claim_token`, `claimed_or_in_flight`, `claim_expired` | Correct the token, wait for the active attempt, or restart registration. |
-    | `/oauth2/token` | `authorization_pending` | Wait at least the advertised interval. |
-    | `/oauth2/token` | `slow_down` | Increase the polling interval. |
-    | `/oauth2/token` | `expired_token` | Start a fresh anonymous claim attempt or registration. |
-    | `/oauth2/token` | `invalid_grant`, `invalid_client`, `unsupported_grant_type` | Correct the request or restart registration. |
+    | `/agent/identity` | `invalid_request` or `invalid_login_hint` | Correct the request. |
+    | `/agent/identity` | `anonymous_not_enabled` or `identity_assertion_not_enabled` | Use `service_auth`. |
+    | `/agent/identity` | `rate_limited` | Wait before registering again. |
+    | Claim page | `invalid_claim_token`, `account_mismatch`, or `expired_token` | Use the exact link and account, or restart registration. |
+    | `/oauth2/token` | `authorization_pending` | Continue polling at the advertised interval. |
+    | `/oauth2/token` | `slow_down` | Wait at least the advertised interval before polling again. |
+    | `/oauth2/token` | `expired_token` or `invalid_grant` | Restart registration or correct the resource. |
+    | `/oauth2/token` | `unsupported_grant_type` | Use an advertised grant type. |
+    | Protected resource | `invalid_token` | Obtain a token for this resource. |
+    | Protected resource | `insufficient_scope` or `forbidden` | Do not attempt an operation outside the authenticated account. |
 
-    ## 8. Revocation
+    ## 8. Revoke credentials
 
-    To revoke only one access token using [token revocation](https://www.rfc-editor.org/rfc/rfc7009):
+    Credential revocation follows [Request for Comments 7009](https://www.rfc-editor.org/rfc/rfc7009) and is idempotent:
 
     ```http
     POST #{origin}/oauth2/revoke
@@ -156,9 +146,24 @@ defmodule TedWeb.AuthMarkdownController do
     token=<access_token>&token_type_hint=access_token
     ```
 
-    The service assertion survives and can be exchanged again. Trusted providers separately send a signed [Security Event Token](https://www.rfc-editor.org/rfc/rfc8417) to `#{origin}/agent/event/notify`. A valid `#{AgentAuth.revocation_event()}` event revokes the registration and every derived token. The agent then receives `invalid_grant` and must restart registration.
+    The identity assertion remains exchangeable until it expires. Ted does not advertise provider security events because provider-verified registration is not enabled.
 
-    Terms: `#{origin}/terms`. Privacy: `#{origin}/privacy`. Integration documentation: `#{origin}/docs`.
+    ## Granted scopes
+
+    - `profile:read` and `profile:write`: read or update the authenticated person's coaching profile.
+    - `objectives:read` and `objectives:write`: read or change that person's objectives.
+    - `check_ins:read` and `check_ins:write`: read or record body-weight and readiness check-ins.
+    - `meals:read` and `meals:write`: read meal history, record meals, and request meal suggestions.
+    - `workouts:read` and `workouts:write`: read or record strength sessions.
+    - `plans:read` and `plans:write`: read, build, and review coaching plans.
+    - `mcp`: connect to the Model Context Protocol server with a resource-bound token.
+
+    ## Service information
+
+    - Service: `#{origin}`
+    - Terms: `#{origin}/terms`
+    - Privacy: `#{origin}/privacy`
+    - Integration help: https://github.com/pepicrft/ted/issues
     """
 
     conn

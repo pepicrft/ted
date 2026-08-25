@@ -35,7 +35,6 @@ defmodule Ted.DataCase do
 
     conn
     |> Plug.Conn.put_private(:ted_index, Repo)
-    |> Plug.Conn.put_private(:ted_api_key, "test")
     |> Plug.Conn.put_private(:ted_rate_limit_namespace, System.unique_integer([:positive]))
     |> Plug.Conn.put_private(:ted_rate_limits, rate_limits)
     |> Plug.Conn.put_req_header("accept", "application/json")
@@ -51,8 +50,8 @@ defmodule Ted.DataCase do
 
   defp maybe_authorize(conn, nil), do: conn
 
-  defp maybe_authorize(conn, api_key),
-    do: Plug.Conn.put_req_header(conn, "authorization", "Bearer #{api_key}")
+  defp maybe_authorize(conn, access_token),
+    do: Plug.Conn.put_req_header(conn, "authorization", "Bearer #{access_token}")
 
   defp unrestricted_rate_limits do
     [

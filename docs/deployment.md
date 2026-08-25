@@ -10,13 +10,7 @@ Create an Infisical item named `ted` with these fields before enabling reconcili
 | --- | --- |
 | `POSTGRES_PASSWORD` | Password for the application database user. |
 | `SECRET_KEY_BASE` | Phoenix cookie and message-signing secret. Generate it with `mise exec -- mix phx.gen.secret`. |
-| `API_KEY` | Initial operator credential for administrative use. Use a long random value. |
 | `AGENT_AUTH_PRIVATE_KEY_PEM` | Stable private signing key in Privacy-Enhanced Mail format for service identity assertions. |
-| `TELEGRAM_BOT_TOKEN` | Token issued by Telegram's BotFather. |
-| `TELEGRAM_WEBHOOK_SECRET` | Long random value checked on every Telegram webhook request. |
-| `LEGAL_OPERATOR_NAME` | Name shown in the legal pages. |
-| `LEGAL_OPERATOR_ADDRESS` | Postal address shown in the legal pages. |
-| `LEGAL_CONTACT_EMAIL` | Contact address shown in the legal pages. |
 
 Generate the service signing key with OpenSSL:
 
@@ -28,23 +22,7 @@ Here, RSA means the [Rivest-Shamir-Adleman public-key system](https://www.rfc-ed
 
 The existing `kubernetes` secret item supplies the GitHub Container Registry pull username and token. The cluster object-storage controller creates the database backup credential after the bucket claim is reconciled.
 
-## Trusted agent providers
-
-Email claims and anonymous starts work without a provider trust list. Provider-verified identity assertions require `TED_AGENT_AUTH_TRUSTED_PROVIDERS_JSON`. The value is a JavaScript Object Notation array:
-
-```json
-[
-  {
-    "issuer": "https://agent-provider.example.com",
-    "jwks_uri": "https://agent-provider.example.com/.well-known/jwks.json",
-    "client_ids": ["ted-production"]
-  }
-]
-```
-
-Add the value to `extraEnv` in `deploy/values-production.yaml` after choosing the providers that may attest identities. Ted rejects every provider assertion while this list is empty. Each configured provider must issue audience-bound assertions for `https://ted.pepicrft.me` and send signed revocation events to `https://ted.pepicrft.me/agent/event/notify`.
-
-The `jwks_uri` field points to the provider's [JSON Web Key Set](https://www.rfc-editor.org/rfc/rfc7517). Ted uses it only after the assertion issuer matches an explicit trust-list entry.
+Ted does not use an administrative application key. Agents register through the auth.md `service_auth` flow, and a person must claim the registration before Ted issues a scoped credential.
 
 ## Publication order
 
@@ -69,4 +47,4 @@ curl --fail https://ted.pepicrft.me/.well-known/mcp/server-card.json
 curl --fail https://ted.pepicrft.me/auth.md
 ```
 
-Then register an anonymous agent, exchange its service assertion for an access token scoped only to `mcp`, initialize the Model Context Protocol connection, revoke the token, and confirm the next request returns `401 Unauthorized`. Finally, configure the Telegram webhook with Telegram's `secret_token` set to `TELEGRAM_WEBHOOK_SECRET` and send `/start`, `/goal`, `/checkin`, and `/today` from a real account.
+Then register an agent with `service_auth`, complete the user claim, exchange its service assertion for an access token bound to the Model Context Protocol resource, initialize the connection, revoke the token, and confirm the next request returns `401 Unauthorized`.

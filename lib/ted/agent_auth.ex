@@ -301,18 +301,7 @@ defmodule Ted.AgentAuth do
 
   def authorize(token, required_scopes, opts)
       when is_binary(token) and is_list(required_scopes) do
-    if valid_api_key?(token, opts) do
-      {:ok,
-       %{
-         kind: :api_key,
-         scopes: @scopes,
-         user_id:
-           Keyword.get(opts, :api_key_user_id) ||
-             Application.fetch_env!(:ted, :api_key_user_id)
-       }}
-    else
-      authorize_access_token(token, required_scopes, opts)
-    end
+    authorize_access_token(token, required_scopes, opts)
   end
 
   def authorize(_token, _required_scopes, _opts), do: {:error, :invalid_token}
@@ -807,13 +796,6 @@ defmodule Ted.AgentAuth do
       else: {:error, :invalid_login_hint}
   end
 
-  defp valid_api_key?(api_key, opts) do
-    expected = Keyword.get(opts, :api_key) || Application.get_env(:ted, :api_key)
-
-    is_binary(expected) and byte_size(api_key) == byte_size(expected) and
-      Plug.Crypto.secure_compare(api_key, expected)
-  end
-
   defp normalize_user_code(code), do: String.trim(code)
 
   defp validate_resource(resource, _opts) when resource in [nil, ""], do: :ok
@@ -847,9 +829,7 @@ defmodule Ted.AgentAuth do
   defp digest(value), do: :crypto.hash(:sha256, value)
 
   defp user_code_digest(code, opts) do
-    key =
-      Keyword.get(opts, :user_code_hmac_key) || Keyword.get(opts, :api_key) ||
-        Application.fetch_env!(:ted, :api_key)
+    key = option(opts, :user_code_hmac_key, nil)
 
     :crypto.mac(:hmac, :sha256, key, "ted:agent-user-code:v1:" <> normalize_user_code(code))
   end

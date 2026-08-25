@@ -1,5 +1,5 @@
 defmodule TedWeb.ApiAuth do
-  @moduledoc "Authenticates application keys and auth.md bearer access tokens."
+  @moduledoc "Authenticates auth.md bearer access tokens."
 
   import Plug.Conn
 
@@ -19,8 +19,6 @@ defmodule TedWeb.ApiAuth do
            AgentAuth.authorize(token, required_scopes,
              index: conn.private[:ted_index] || Index.context(),
              issuer: PublicOrigin.from_conn(conn),
-             api_key: conn.private[:ted_api_key] || Application.get_env(:ted, :api_key),
-             api_key_user_id: Application.fetch_env!(:ted, :api_key_user_id),
              resource: requested_resource(conn)
            ) do
       assign(conn, :authorization, authorization)
@@ -37,10 +35,9 @@ defmodule TedWeb.ApiAuth do
   end
 
   defp credential(conn) do
-    case {get_req_header(conn, "authorization"), get_req_header(conn, "x-api-key")} do
-      {["Bearer " <> token], _api_key} when byte_size(token) > 0 -> {:ok, token}
-      {_authorization, [api_key]} when byte_size(api_key) > 0 -> {:ok, api_key}
-      _headers -> {:error, :missing_token}
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> token] when byte_size(token) > 0 -> {:ok, token}
+      _authorization -> {:error, :missing_token}
     end
   end
 

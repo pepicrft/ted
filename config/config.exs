@@ -2,8 +2,6 @@ import Config
 
 config :ted,
   ecto_repos: [Ted.Repo],
-  api_key: "development",
-  api_key_user_id: "00000000-0000-0000-0000-000000000001",
   agent_auth_sweeper: true,
   allowed_mcp_origins: ["http://localhost:4000", "http://127.0.0.1:4000"],
   telegram: [bot_token: nil, webhook_secret: nil],
@@ -31,6 +29,7 @@ config :ted,
     access_token_ttl_seconds: 3_600,
     poll_interval_seconds: 5,
     maximum_auth_age_seconds: 3_600,
+    user_code_hmac_key: "development-user-code-hmac-key",
     trusted_providers: [],
     allow_ephemeral_signing_key: true
   ]

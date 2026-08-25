@@ -77,10 +77,12 @@ defmodule TedWeb.OAuthController do
   defp error_description(_reason), do: "The credential could not be exchanged."
 
   defp auth_opts(conn) do
-    [
-      index: conn.private[:ted_index] || Index.context(),
-      issuer: PublicOrigin.from_conn(conn),
-      api_key: conn.private[:ted_api_key] || Application.get_env(:ted, :api_key)
-    ]
+    Keyword.merge(
+      [
+        index: conn.private[:ted_index] || Index.context(),
+        issuer: PublicOrigin.from_conn(conn)
+      ],
+      conn.private[:ted_agent_auth_options] || []
+    )
   end
 end

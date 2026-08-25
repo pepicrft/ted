@@ -152,7 +152,7 @@ defmodule Ted.AgentAuthTest do
     [
       index: repo,
       issuer: @issuer,
-      api_key: "test-secret",
+      user_code_hmac_key: "test-user-code-hmac-key",
       allow_ephemeral_signing_key: true
     ]
   end

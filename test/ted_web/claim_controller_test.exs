@@ -10,7 +10,7 @@ defmodule TedWeb.ClaimControllerTest do
     auth_options = [
       index: repo,
       issuer: "http://www.example.com",
-      api_key: "test",
+      user_code_hmac_key: "test-user-code-hmac-key",
       allow_ephemeral_signing_key: true
     ]
 
@@ -67,7 +67,9 @@ defmodule TedWeb.ClaimControllerTest do
     |> Plug.Test.conn("/agent/identity/claim")
     |> Plug.Test.init_test_session(session)
     |> Plug.Conn.put_private(:ted_index, repo)
-    |> Plug.Conn.put_private(:ted_api_key, "test")
+    |> Plug.Conn.put_private(:ted_agent_auth_options,
+      user_code_hmac_key: "test-user-code-hmac-key"
+    )
     |> Plug.Conn.put_private(:ted_email_notifier, EmailNotifier)
     |> Map.put(:query_params, %{"claim_attempt_token" => claim_attempt_token})
   end

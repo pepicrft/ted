@@ -54,7 +54,7 @@ defmodule TedWeb.RateLimit do
   end
 
   defp request_identity(conn) do
-    case get_req_header(conn, "authorization") ++ get_req_header(conn, "x-api-key") do
+    case get_req_header(conn, "authorization") do
       [credential | _credentials] -> "credential:" <> digest(credential)
       [] -> "address:" <> (conn.remote_ip |> :inet.ntoa() |> to_string())
     end

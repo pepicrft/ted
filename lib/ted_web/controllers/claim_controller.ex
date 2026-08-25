@@ -534,12 +534,14 @@ defmodule TedWeb.ClaimController do
   end
 
   defp auth_opts(conn) do
-    [
-      index: repo(conn),
-      issuer: TedWeb.PublicOrigin.from_conn(conn),
-      api_key: conn.private[:ted_api_key] || Application.get_env(:ted, :api_key),
-      network_address: conn.remote_ip |> :inet.ntoa() |> to_string()
-    ]
+    Keyword.merge(
+      [
+        index: repo(conn),
+        issuer: TedWeb.PublicOrigin.from_conn(conn),
+        network_address: conn.remote_ip |> :inet.ntoa() |> to_string()
+      ],
+      conn.private[:ted_agent_auth_options] || []
+    )
   end
 
   defp repo(conn), do: conn.private[:ted_index] || Index.context()
