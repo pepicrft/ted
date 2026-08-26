@@ -11,6 +11,23 @@ defmodule Ted.AgentAuthTest do
     def fetch(_uri, opts), do: {:ok, Keyword.fetch!(opts, :jwks_document)}
   end
 
+  test "uses the configured claim window", %{repo: repo} do
+    now = 1_787_000_000
+
+    opts =
+      repo
+      |> auth_opts()
+      |> Keyword.put(:now, now)
+      |> Keyword.put(:claim_attempt_ttl_seconds, 3_600)
+
+    assert AgentAuth.claim_attempt_ttl(opts) == 3_600
+
+    assert {:ok, registration} =
+             AgentAuth.create_service_registration("person@example.test", opts)
+
+    assert registration.registration.claim_attempt_expires_at == now + 3_600
+  end
+
   test "anonymous access is limited until the person claims it", %{repo: repo} do
     opts = auth_opts(repo)
     assert {:ok, registration} = AgentAuth.create_anonymous_registration(opts)

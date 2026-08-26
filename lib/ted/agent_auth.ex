@@ -46,6 +46,9 @@ defmodule Ted.AgentAuth do
   @spec poll_interval(keyword()) :: pos_integer()
   def poll_interval(opts \\ []), do: option(opts, :poll_interval_seconds, 5)
 
+  @spec claim_attempt_ttl(keyword()) :: pos_integer()
+  def claim_attempt_ttl(opts \\ []), do: option(opts, :claim_attempt_ttl_seconds, 600)
+
   @spec create_anonymous_registration(keyword()) :: {:ok, map()} | {:error, term()}
   def create_anonymous_registration(opts \\ []) do
     current_time = now(opts)
@@ -106,8 +109,7 @@ defmodule Ted.AgentAuth do
                 claim_email: email,
                 claim_attempt_token_hash: digest(attempt_token),
                 user_code_hash: user_code_digest(user_code, opts),
-                claim_attempt_expires_at:
-                  current_time + option(opts, :claim_attempt_ttl_seconds, 600)
+                claim_attempt_expires_at: current_time + claim_attempt_ttl(opts)
               }, current_time}
            ) do
       {:ok,
@@ -458,7 +460,7 @@ defmodule Ted.AgentAuth do
           user_code_hash: user_code_digest(user_code, opts),
           created_at: current_time,
           expires_at: current_time + option(opts, :registration_ttl_seconds, 86_400),
-          claim_attempt_expires_at: current_time + option(opts, :claim_attempt_ttl_seconds, 600),
+          claim_attempt_expires_at: current_time + claim_attempt_ttl(opts),
           registration_address: address
         },
         extra_attributes

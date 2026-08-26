@@ -24,6 +24,8 @@ The existing `kubernetes` secret item supplies the GitHub Container Registry pul
 
 Ted does not use an administrative application key. Agents register through the auth.md `service_auth` flow, and a person must claim the registration before Ted issues a scoped credential.
 
+Claim links expire after ten minutes by default. `TED_AGENT_AUTH_CLAIM_ATTEMPT_TTL_SECONDS` can extend that window for instances where people may respond asynchronously; the hosted production values use one hour. Every registration response advertises its exact remaining lifetime through `claim.expires_in`.
+
 Access tokens expire after one hour by default. Agents refresh them by exchanging the service identity assertion again. `TED_AGENT_AUTH_ASSERTION_TTL_SECONDS` controls how long that assertion remains exchangeable. Keep the default one-day lifetime for interactive connections; a continuously running bot can use a longer rotation window when its assertion is stored in a dedicated secret manager and its registration can be revoked operationally.
 
 ## Publication order

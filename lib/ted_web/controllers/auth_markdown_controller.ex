@@ -18,6 +18,7 @@ defmodule TedWeb.AuthMarkdownController do
     origin = PublicOrigin.from_conn(conn)
     scopes = Enum.join(AgentAuth.agent_scopes(), " ")
     scope_list = JSON.encode!(AgentAuth.agent_scopes())
+    claim_attempt_ttl = AgentAuth.claim_attempt_ttl()
 
     document = """
     # auth.md
@@ -64,7 +65,7 @@ defmodule TedWeb.AuthMarkdownController do
       "post_claim_scopes": #{scope_list},
       "claim": {
         "user_code": "123456",
-        "expires_in": 600,
+        "expires_in": #{claim_attempt_ttl},
         "verification_uri": "#{origin}/agent/identity/claim?claim_attempt_token=cla_...",
         "interval": 5
       }

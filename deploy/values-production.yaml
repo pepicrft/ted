@@ -19,6 +19,9 @@ ingress:
   tlsSecretName: ted-pepicrft-me-tls
 
 extraEnv:
+  # Leave enough time for a person to notice and complete an asynchronous agent
+  # connection request. Each response advertises the exact remaining lifetime.
+  TED_AGENT_AUTH_CLAIM_ATTEMPT_TTL_SECONDS: "3600"
   # The management Hermes instance re-exchanges this revocable assertion for
   # one-hour, Model Context Protocol resource-bound access tokens. Rotate its
   # claimed registration before the assertion expires.

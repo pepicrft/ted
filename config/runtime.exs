@@ -156,7 +156,9 @@ config :ted,
   ],
   agent_auth: [
     registration_ttl_seconds: 86_400,
-    claim_attempt_ttl_seconds: 600,
+    claim_attempt_ttl_seconds:
+      System.get_env("TED_AGENT_AUTH_CLAIM_ATTEMPT_TTL_SECONDS", "600")
+      |> String.to_integer(),
     registration_address_limit:
       System.get_env("TED_AGENT_AUTH_ADDRESS_LIMIT", "10") |> String.to_integer(),
     registration_global_limit:
