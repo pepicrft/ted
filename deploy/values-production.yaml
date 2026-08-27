@@ -30,7 +30,9 @@ extraEnv:
   TED_EMAIL_FROM_ADDRESS: ted@pepicrft.me
   TED_EMAIL_FROM_NAME: Ted
   TED_SMTP_PORT: "587"
-  TED_SMTP_RELAY: smtp-relay.pepicrft.me
+  # Use the in-cluster relay address. The public hostname intentionally does
+  # not accept connections from workloads inside the cluster.
+  TED_SMTP_RELAY: smtp-relay.smtp-relay.svc.cluster.local
   # Traces, metrics, and structured logs go to the shared Alloy collector in the
   # observability namespace, which forwards to Tempo, Prometheus, and Loki.
   OTEL_EXPORTER_OTLP_ENDPOINT: http://observability-alloy.observability.svc.cluster.local:4318
