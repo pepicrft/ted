@@ -17,11 +17,6 @@ defmodule TedWeb.Router do
     plug TedWeb.RateLimit, bucket: :authentication
   end
 
-  pipeline :telegram do
-    plug :accepts, ["json"]
-    plug TedWeb.RateLimit, bucket: :authentication
-  end
-
   pipeline :mcp do
     plug TedWeb.RateLimit, bucket: :model_context_protocol
     plug TedWeb.ValidateMcpOrigin
@@ -85,11 +80,6 @@ defmodule TedWeb.Router do
     post "/oauth2/register", OAuthRegistrationController, :register
     post "/oauth2/token", OAuthController, :token
     post "/oauth2/revoke", OAuthController, :revoke
-  end
-
-  scope "/", TedWeb do
-    pipe_through :telegram
-    post "/telegram/webhook", TelegramController, :webhook
   end
 
   scope "/", TedWeb do

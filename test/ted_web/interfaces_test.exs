@@ -81,6 +81,8 @@ defmodule TedWeb.InterfacesTest do
     refute Map.has_key?(paths, "/privacy")
     refute Map.has_key?(paths, "/cookies")
 
+    assert DataCase.endpoint_conn(:post, "/telegram/webhook", %{}).status == 404
+
     favicon = DataCase.endpoint_conn(:get, "/favicon.ico", nil)
     assert favicon.status == 200
     assert Plug.Conn.get_resp_header(favicon, "content-type") == ["image/vnd.microsoft.icon"]
