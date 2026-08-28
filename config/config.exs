@@ -4,7 +4,6 @@ config :ted,
   ecto_repos: [Ted.Repo],
   agent_auth_sweeper: true,
   allowed_mcp_origins: ["http://localhost:4000", "http://127.0.0.1:4000"],
-  telegram: [bot_token: nil, webhook_secret: nil],
   rate_limits: [
     documentation: [scale_ms: 60_000, limit: 60],
     api: [scale_ms: 60_000, limit: 120],
@@ -52,7 +51,7 @@ config :opentelemetry, traces_exporter: :none
 
 config :phoenix,
        :filter_parameters,
-       ~w(password token bot_token webhook_secret email_verification_token claim_token claim_attempt_token user_code assertion)
+       ~w(password token email_verification_token claim_token claim_attempt_token user_code assertion)
 
 config :ted, Ted.Mailer, adapter: Swoosh.Adapters.Local
 config :swoosh, :api_client, Swoosh.ApiClient.Finch

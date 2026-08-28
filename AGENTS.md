@@ -26,7 +26,7 @@
 - Describe every [Hypertext Transfer Protocol](https://developer.mozilla.org/en-US/docs/Web/HTTP) operation with [OpenAPI](https://www.openapis.org/) through [OpenApiSpex](https://github.com/open-api-spex/open_api_spex).
 - Use the same operation names, request fields, response fields, authorization scopes, and behavior in the OpenAPI operation identifiers and Model Context Protocol tool names.
 - When an operation changes, update and test the Hypertext Transfer Protocol route, OpenAPI document, and Model Context Protocol tool together.
-- Treat Telegram credentials, service signing keys, provider assertions, claim tokens, and access tokens as secrets. Never place them in logs or response fields that do not explicitly issue a one-time credential.
+- Treat service signing keys, provider assertions, claim tokens, and access tokens as secrets. Never place them in logs or response fields that do not explicitly issue a one-time credential.
 - Keep `priv/repo/seeds.exs` representative of multiple people, objectives, and plans. End-to-end verification must prove that profiles, logs, objectives, and plans remain isolated by person through both the web interface and Model Context Protocol server.
 
 ## Coaching safety and evidence

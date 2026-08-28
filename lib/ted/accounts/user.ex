@@ -32,7 +32,6 @@ defmodule Ted.Accounts.User do
     has_many(:meals, Ted.Coaching.Meal)
     has_many(:objectives, Ted.Coaching.Objective)
     has_many(:plans, Ted.Coaching.Plan)
-    has_many(:telegram_connections, Ted.Telegram.Connection)
 
     timestamps()
   end

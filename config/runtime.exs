@@ -118,10 +118,6 @@ config :ted,
   email_from:
     {System.get_env("TED_EMAIL_FROM_NAME", "Ted"),
      System.get_env("TED_EMAIL_FROM_ADDRESS", "ted@example.com")},
-  telegram: [
-    bot_token: System.get_env("TED_TELEGRAM_BOT_TOKEN"),
-    webhook_secret: System.get_env("TED_TELEGRAM_WEBHOOK_SECRET")
-  ],
   rate_limits: [
     documentation: [
       scale_ms: rate_limit_window,

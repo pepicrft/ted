@@ -4,11 +4,9 @@
 
 Ted turns objectives, check-ins, meals, workouts, and recovery signals into a plan you can adjust as life happens. It tracks the facts, reviews trends over time, and suggests the next useful action without pretending that one plan fits everyone.
 
-Your installation, accounts, and coaching records stay in infrastructure you control. Ted does not require an administrator key or a model-provider key. Connect an agent through the [Model Context Protocol](https://modelcontextprotocol.io/), follow the [auth.md agent registration protocol](https://workos.com/auth-md/docs), or optionally talk to Ted through Telegram.
+Your installation, accounts, and coaching records stay in infrastructure you control. Ted does not require an administrator key or a model-provider key. Connect directly through the [Model Context Protocol](https://modelcontextprotocol.io/), use a compatible client or bot such as Hermes or OpenClaw, or follow the [auth.md agent registration protocol](https://workos.com/auth-md/docs).
 
 [![Ted checks](https://github.com/pepicrft/ted/actions/workflows/ted.yml/badge.svg)](https://github.com/pepicrft/ted/actions/workflows/ted.yml)
-
-![Ted operation reference](docs/screenshots/sourcehut-browser-ui/operation-reference.png)
 
 ## ✨ What Ted does
 
@@ -37,10 +35,9 @@ The rules and meal suggestions are deterministic and traceable. [The evidence le
 
 | Interface | Best for | Starting point |
 | --- | --- | --- |
-| [Model Context Protocol](https://modelcontextprotocol.io/) | Claude, Hermes, OpenClaw, and other compatible clients | `https://coach.example.com/mcp` |
+| [Model Context Protocol](https://modelcontextprotocol.io/) | Claude, Hermes, OpenClaw, and other compatible clients or bots | `https://coach.example.com/mcp` |
 | [auth.md](https://workos.com/auth-md/docs) | Agents that register on a person's behalf | `https://coach.example.com/auth.md` |
 | [OpenAPI](https://www.openapis.org/) web interface | Custom applications and direct integration | `https://coach.example.com/openapi.json` |
-| Telegram | A conversational bot owned by the self-hoster | `https://coach.example.com/telegram/webhook` |
 
 ### Model Context Protocol clients
 
@@ -58,10 +55,6 @@ The shared operation catalog includes tools to:
 ### auth.md agents
 
 An agent starts at `/auth.md`, registers with the person's email address, and receives a claim link plus a six-digit code. The person opens the link, signs in or creates an account, verifies the email address, and enters the code. Ted issues scoped credentials only after that confirmation.
-
-### Telegram
-
-Telegram is optional. Set `TED_TELEGRAM_BOT_TOKEN` and `TED_TELEGRAM_WEBHOOK_SECRET`, then configure the bot webhook to point at `/telegram/webhook`. Leave both values unset when Telegram is not part of your installation.
 
 ## 🚀 Run Ted locally
 
@@ -233,7 +226,6 @@ Useful routes on every installation:
 | `/.well-known/oauth-authorization-server` | Authorization-server discovery. |
 | `/.well-known/mcp/server-card.json` | Model Context Protocol server description. |
 | `/mcp` | Model Context Protocol endpoint. |
-| `/telegram/webhook` | Optional Telegram webhook. |
 | `/health` | Application and database readiness. |
 
 Recommended operational practices:
@@ -242,7 +234,7 @@ Recommended operational practices:
 - Keep the Phoenix secret and agent-signing key stable across deployments.
 - Rotate exposed credentials and revoke affected access tokens.
 - Put Ted behind secure transport and restrict direct access to the application port.
-- Review logs and traces without recording claim tokens, access tokens, passwords, or Telegram credentials.
+- Review logs and traces without recording claim tokens, access tokens, or passwords.
 - Upgrade by applying database migrations before replacing the running application. The chart does this automatically.
 
 ## 📚 Project documentation

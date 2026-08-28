@@ -4,7 +4,6 @@ test_port = String.to_integer(System.get_env("TED_TEST_PORT", "4002"))
 
 config :ted,
   agent_auth_sweeper: false,
-  telegram: [bot_token: "test-token", webhook_secret: "test-secret"],
   rate_limits: [
     website: [scale_ms: 60_000, limit: 100_000],
     documentation: [scale_ms: 60_000, limit: 100_000],
