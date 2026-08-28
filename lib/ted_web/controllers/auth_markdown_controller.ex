@@ -38,6 +38,12 @@ defmodule TedWeb.AuthMarkdownController do
 
     Fetch `#{origin}/.well-known/oauth-authorization-server`. Read `issuer`, `token_endpoint`, `revocation_endpoint`, `grant_types_supported`, and the complete `agent_auth` object. It describes `skill`, `identity_endpoint`, `claim_endpoint`, `events_endpoint`, `identity_types_supported`, `identity_assertion.assertion_types_supported`, and `events_supported`.
 
+    ## Native Model Context Protocol clients
+
+    Ted supports [OAuth 2.0 Dynamic Client Registration](https://www.rfc-editor.org/rfc/rfc7591) for native [Model Context Protocol](https://modelcontextprotocol.io/) clients. Read `registration_endpoint`, `authorization_endpoint`, `response_types_supported`, `code_challenge_methods_supported`, and `token_endpoint_auth_methods_supported` from the authorization-server metadata.
+
+    Register a public client at `#{origin}/oauth2/register`, then start the authorization-code flow at `#{origin}/oauth2/authorize`. Ted requires the `S256` [Proof Key for Code Exchange](https://www.rfc-editor.org/rfc/rfc7636) method, an exact registered redirect address, and a token resource of `#{origin}/mcp`. The person signs in and explicitly approves the requested scopes before Ted redirects to the registered address. Exchange the resulting code at `#{origin}/oauth2/token`; a successful response includes a rotating refresh token.
+
     ## 2. Pick a method
 
     Ted supports `service_auth`. Use it when the person gives you their email and consents to connect. The person must sign in or create an account on a Ted-owned page before access is granted.

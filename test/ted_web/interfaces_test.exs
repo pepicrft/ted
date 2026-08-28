@@ -16,6 +16,9 @@ defmodule TedWeb.InterfacesTest do
     assert document["agent_auth"]["identity_assertion"]["assertion_types_supported"] == []
     assert document["agent_auth"]["events_supported"] == []
     assert document["token_endpoint"] =~ "/oauth2/token"
+    assert document["authorization_endpoint"] =~ "/oauth2/authorize"
+    assert document["registration_endpoint"] =~ "/oauth2/register"
+    assert document["code_challenge_methods_supported"] == ["S256"]
 
     instructions = DataCase.endpoint_conn(:get, "/auth.md", nil)
     assert instructions.status == 200
@@ -23,6 +26,7 @@ defmodule TedWeb.InterfacesTest do
     assert instructions.resp_body =~ "## 8. Revoke credentials"
     assert instructions.resp_body =~ "Register with service_auth"
     assert instructions.resp_body =~ "anonymous_not_enabled"
+    assert instructions.resp_body =~ "Dynamic Client Registration"
   end
 
   test "rejects unadvertised registration flows and obsolete application keys", %{repo: repo} do

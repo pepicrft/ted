@@ -11,7 +11,7 @@ The name and warm coaching spirit reference [Ted Lasso](https://tv.apple.com/us/
 - Suggests concrete meals that respect recorded dietary preferences, available time, known avoided ingredients, and the active objective, with evidence and limitations in every response.
 - Reviews trends over a defined window, records confidence and rationale, and changes at most one major plan variable at a time.
 - Pauses progression when a check-in contains a meaningful pain signal.
-- Exposes one shared operation catalog through an [OpenAPI](https://www.openapis.org/)-described web interface and a [Model Context Protocol](https://modelcontextprotocol.io/) server.
+- Exposes one shared operation catalog through an [OpenAPI](https://www.openapis.org/)-described web interface and a [Model Context Protocol](https://modelcontextprotocol.io/) server, including [OAuth 2.0 Dynamic Client Registration](https://www.rfc-editor.org/rfc/rfc7591) for native clients.
 - Can optionally receive commands as a Telegram bot.
 - Implements the [auth.md](https://workos.com/auth-md/docs) `service_auth` registration and user-claim flow. Agents receive only short-lived, scoped bearer credentials after the person confirms access.
 
@@ -39,7 +39,7 @@ Useful routes:
 - `/docs` provides the interactive operation reference.
 - `/openapi.json` provides the machine-readable web interface description.
 - `/auth.md` explains agent registration.
-- `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` provide authorization discovery.
+- `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server` provide authorization discovery, including dynamic client registration and authorization-code endpoints.
 - `/mcp` serves the Model Context Protocol.
 - `/telegram/webhook` receives Telegram updates when the optional integration is configured.
 - `/health` reports service and database readiness.

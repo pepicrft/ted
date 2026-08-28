@@ -5,6 +5,7 @@ defmodule TedWeb.ApiAuth do
 
   alias Ted.AgentAuth
   alias Ted.Index
+  alias Ted.OAuth
   alias TedWeb.PublicOrigin
 
   @spec init(keyword()) :: keyword()
@@ -16,11 +17,7 @@ defmodule TedWeb.ApiAuth do
 
     with {:ok, token} <- credential(conn),
          {:ok, authorization} <-
-           AgentAuth.authorize(token, required_scopes,
-             index: conn.private[:ted_index] || Index.context(),
-             issuer: PublicOrigin.from_conn(conn),
-             resource: requested_resource(conn)
-           ) do
+           authorize(token, required_scopes, conn) do
       assign(conn, :authorization, authorization)
     else
       {:error, :insufficient_scope} -> unauthorized(conn, "insufficient_scope", required_scopes)
@@ -36,8 +33,39 @@ defmodule TedWeb.ApiAuth do
 
   defp credential(conn) do
     case get_req_header(conn, "authorization") do
-      ["Bearer " <> token] when byte_size(token) > 0 -> {:ok, token}
+      [authorization] -> parse_bearer_credential(authorization)
       _authorization -> {:error, :missing_token}
+    end
+  end
+
+  defp parse_bearer_credential(authorization) do
+    case String.split(authorization, " ", parts: 2) do
+      [scheme, token] when byte_size(token) > 0 ->
+        if String.downcase(scheme) == "bearer",
+          do: {:ok, token},
+          else: {:error, :missing_token}
+
+      _credential ->
+        {:error, :missing_token}
+    end
+  end
+
+  defp authorize(token, required_scopes, conn) do
+    agent_auth_opts = [
+      index: conn.private[:ted_index] || Index.context(),
+      issuer: PublicOrigin.from_conn(conn),
+      resource: requested_resource(conn)
+    ]
+
+    case AgentAuth.authorize(token, required_scopes, agent_auth_opts) do
+      {:error, :invalid_token} ->
+        OAuth.authorize(token, required_scopes,
+          repo: conn.private[:ted_index] || Index.context(),
+          resource: requested_resource(conn)
+        )
+
+      result ->
+        result
     end
   end
 
