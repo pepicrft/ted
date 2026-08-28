@@ -168,8 +168,6 @@ defmodule TedWeb.AuthMarkdownController do
     ## Service information
 
     - Service: `#{origin}`
-    - Terms: `#{origin}/terms`
-    - Privacy: `#{origin}/privacy`
     - Integration help: https://github.com/pepicrft/ted/issues
     """
 

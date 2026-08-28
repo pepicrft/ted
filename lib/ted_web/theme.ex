@@ -89,7 +89,6 @@ defmodule TedWeb.Theme do
       <a href="/" data-part="brand">ted</a>
       <a href="/docs">operations</a>
       <a href="/auth.md">auth.md</a>
-      <a href="/terms">terms</a>
     </nav>
   </header>
   """
