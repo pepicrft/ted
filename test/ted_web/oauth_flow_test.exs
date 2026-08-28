@@ -2,6 +2,7 @@ defmodule TedWeb.OAuthFlowTest do
   use Ted.DataCase, async: true
 
   alias Ted.Accounts
+  alias Ted.Accounts.User
   alias Ted.DataCase
   alias Ted.OAuth
 
@@ -271,6 +272,68 @@ defmodule TedWeb.OAuthFlowTest do
       )
 
     assert rejected_approval.status == 400
+  end
+
+  test "signing in preserves the pending authorization request across session renewal", %{
+    repo: repo
+  } do
+    password = "a secure test password"
+
+    {:ok, user} =
+      %User{}
+      |> User.agent_signup_changeset(%{
+        "email" => "sign-in-owner@example.test",
+        "name" => "Sign-in Owner",
+        "password" => password
+      })
+      |> Ecto.Changeset.change(
+        email_verified_at: DateTime.utc_now() |> DateTime.truncate(:microsecond)
+      )
+      |> repo.insert()
+
+    client = register_client(repo, ["authorization_code", "refresh_token"])
+    verifier = String.duplicate("ted-proof-key-", 4)
+    challenge = :crypto.hash(:sha256, verifier) |> Base.url_encode64(padding: false)
+
+    query =
+      URI.encode_query(%{
+        "response_type" => "code",
+        "client_id" => client.client_id,
+        "redirect_uri" => hd(client.redirect_uris),
+        "scope" => "mcp",
+        "resource" => TedWeb.Endpoint.url() <> "/mcp",
+        "code_challenge" => challenge,
+        "code_challenge_method" => "S256"
+      })
+
+    authorization = browser_conn(:get, "/oauth2/authorize?#{query}", nil, repo, %{})
+
+    assert authorization.status == 302
+    assert Plug.Conn.get_resp_header(authorization, "location") == ["/oauth2/authorize/sign-in"]
+
+    sign_in = next_browser_conn(authorization, :get, "/oauth2/authorize/sign-in", nil, repo)
+    assert sign_in.status == 200
+
+    authenticated =
+      next_browser_conn(
+        sign_in,
+        :post,
+        "/oauth2/authorize/sign-in",
+        %{
+          "email" => user.email,
+          "password" => password,
+          "_csrf_token" => csrf_token(sign_in.resp_body)
+        },
+        repo
+      )
+
+    assert authenticated.status == 302
+    assert Plug.Conn.get_resp_header(authenticated, "location") == ["/oauth2/authorize"]
+
+    consent = next_browser_conn(authenticated, :get, "/oauth2/authorize", nil, repo)
+
+    assert consent.status == 200
+    assert consent.resp_body =~ "Connect Ted Test Client?"
   end
 
   test "dynamic client registration rejects an untrusted HTTP redirect address" do
