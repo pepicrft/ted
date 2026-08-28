@@ -27,6 +27,8 @@ defmodule TedWeb.InterfacesTest do
     assert instructions.resp_body =~ "Register with service_auth"
     assert instructions.resp_body =~ "anonymous_not_enabled"
     assert instructions.resp_body =~ "Dynamic Client Registration"
+    refute instructions.resp_body =~ "/terms"
+    refute instructions.resp_body =~ "/privacy"
   end
 
   test "rejects unadvertised registration flows and obsolete application keys", %{repo: repo} do
@@ -55,7 +57,7 @@ defmodule TedWeb.InterfacesTest do
     assert JSON.decode!(obsolete_key.resp_body) == %{"error" => "invalid_token"}
   end
 
-  test "redirects the root to operations and publishes the legal boundary and favicon" do
+  test "redirects the root to operations and publishes the favicon" do
     home = DataCase.endpoint_conn(:get, "/", nil)
 
     assert home.status == 302
@@ -65,11 +67,19 @@ defmodule TedWeb.InterfacesTest do
     assert reference.status == 200
     assert reference.resp_body =~ "Ted application programming interface reference"
     assert reference.resp_body =~ ~s(rel="icon" href="/favicon.ico")
+    assert reference.resp_body =~ "--font-size: 16px"
+    assert reference.resp_body =~ ~s(data-part="site-header")
 
-    terms = DataCase.endpoint_conn(:get, "/terms", nil)
-    assert terms.status == 200
-    assert terms.resp_body =~ "Your decision and responsibility"
-    assert terms.resp_body =~ "Nothing in these terms excludes or limits liability"
+    for path <- ["/terms", "/privacy", "/cookies"] do
+      assert DataCase.endpoint_conn(:get, path, nil).status == 404
+    end
+
+    open_api = DataCase.endpoint_conn(:get, "/openapi.json", nil)
+    paths = open_api.resp_body |> JSON.decode!() |> Map.fetch!("paths")
+
+    refute Map.has_key?(paths, "/terms")
+    refute Map.has_key?(paths, "/privacy")
+    refute Map.has_key?(paths, "/cookies")
 
     favicon = DataCase.endpoint_conn(:get, "/favicon.ico", nil)
     assert favicon.status == 200

@@ -13,7 +13,6 @@ image:
 imagePullSecrets: []
 
 host: ted.example.com
-publicOrigin: https://ted.example.com
 
 service:
   port: 80
@@ -34,10 +33,10 @@ analytics:
 
 extraEnv:
   TED_ALLOWED_MCP_ORIGINS: https://ted.example.com
-  TED_EMAIL_FROM_ADDRESS: ted@pepicrft.me
+  TED_EMAIL_FROM_ADDRESS: ted@ted.example.com
   TED_EMAIL_FROM_NAME: Ted
   TED_SMTP_PORT: "587"
-  TED_SMTP_RELAY: smtp-relay.pepicrft.me
+  TED_SMTP_RELAY: mail-relay.default.svc.cluster.local
 
 temporaryFiles:
   sizeLimit: 128Mi

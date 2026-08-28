@@ -2,7 +2,7 @@ defmodule TedWeb.HomeController do
   use TedWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
-  tags ["Website"]
+  tags ["Documentation"]
   security []
 
   operation :show,

@@ -7,11 +7,6 @@ defmodule TedWeb.Router do
     plug OpenApiSpex.Plug.PutApiSpec, module: TedWeb.ApiSpec
   end
 
-  pipeline :website do
-    plug TedWeb.RateLimit, bucket: :website, response: :text
-    plug OpenApiSpex.Plug.PutApiSpec, module: TedWeb.ApiSpec
-  end
-
   pipeline :reference do
     plug TedWeb.RateLimit, bucket: :documentation, response: :text
     plug OpenApiSpex.Plug.PutApiSpec, module: TedWeb.ApiSpec
@@ -50,16 +45,8 @@ defmodule TedWeb.Router do
   end
 
   scope "/", TedWeb do
-    pipe_through :website
-
-    get "/", HomeController, :show
-    get "/terms", LegalController, :terms
-    get "/privacy", LegalController, :privacy
-    get "/cookies", LegalController, :cookies
-  end
-
-  scope "/", TedWeb do
     pipe_through :reference
+    get "/", HomeController, :show
     get "/docs", ApiReferenceController, :show
     get "/auth.md", AuthMarkdownController, :show
   end

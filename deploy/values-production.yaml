@@ -1,7 +1,6 @@
 fullnameOverride: ted
 
 host: ted.pepicrft.me
-publicOrigin: https://ted.pepicrft.me
 
 imagePullSecrets:
   - name: ghcr-pull-secret

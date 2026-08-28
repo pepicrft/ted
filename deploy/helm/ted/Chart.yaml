@@ -4,6 +4,6 @@ description: Headless strength training and nutrition coach
 type: application
 version: 0.1.0
 appVersion: "0.1.0"
-home: https://ted.pepicrft.me
+home: https://github.com/pepicrft/ted
 sources:
   - https://github.com/pepicrft/ted

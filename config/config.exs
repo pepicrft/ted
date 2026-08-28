@@ -5,14 +5,7 @@ config :ted,
   agent_auth_sweeper: true,
   allowed_mcp_origins: ["http://localhost:4000", "http://127.0.0.1:4000"],
   telegram: [bot_token: nil, webhook_secret: nil],
-  legal: [
-    operator_name: "Ted development instance",
-    operator_address: "Not a public deployment",
-    contact_email: "owner@ted.local",
-    effective_date: "11 August 2026"
-  ],
   rate_limits: [
-    website: [scale_ms: 60_000, limit: 60],
     documentation: [scale_ms: 60_000, limit: 60],
     api: [scale_ms: 60_000, limit: 120],
     authentication: [scale_ms: 60_000, limit: 30],

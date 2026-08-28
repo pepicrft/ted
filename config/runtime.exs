@@ -67,15 +67,6 @@ trusted_agent_providers =
 
 rate_limit_window = System.get_env("TED_RATE_LIMIT_WINDOW_MS", "60000") |> String.to_integer()
 
-legal = [
-  operator_name: System.get_env("TED_LEGAL_OPERATOR_NAME", "Ted development instance"),
-  operator_address: System.get_env("TED_LEGAL_OPERATOR_ADDRESS", "Not a public deployment"),
-  contact_email: System.get_env("TED_LEGAL_CONTACT_EMAIL", "owner@ted.local"),
-  registration: System.get_env("TED_LEGAL_REGISTRATION"),
-  tax_identifier: System.get_env("TED_LEGAL_TAX_IDENTIFIER"),
-  effective_date: System.get_env("TED_LEGAL_EFFECTIVE_DATE", "16 August 2026")
-]
-
 if config_env() == :prod do
   database_url = System.fetch_env!("TED_DATABASE_URL")
   secret_key_base = System.fetch_env!("TED_SECRET_KEY_BASE")
@@ -114,7 +105,7 @@ if config_env() == :prod do
 
   config :ted, Ted.Mailer,
     adapter: Swoosh.Adapters.SMTP,
-    relay: System.get_env("TED_SMTP_RELAY", "smtp-relay.pepicrft.me"),
+    relay: System.get_env("TED_SMTP_RELAY", "localhost"),
     port: System.get_env("TED_SMTP_PORT", "587") |> String.to_integer(),
     auth: :never,
     tls: :never,
@@ -126,17 +117,12 @@ config :ted,
   allowed_mcp_origins: allowed_mcp_origins,
   email_from:
     {System.get_env("TED_EMAIL_FROM_NAME", "Ted"),
-     System.get_env("TED_EMAIL_FROM_ADDRESS", "hello@ted.pepicrft.me")},
-  legal: legal,
+     System.get_env("TED_EMAIL_FROM_ADDRESS", "ted@example.com")},
   telegram: [
     bot_token: System.get_env("TED_TELEGRAM_BOT_TOKEN"),
     webhook_secret: System.get_env("TED_TELEGRAM_WEBHOOK_SECRET")
   ],
   rate_limits: [
-    website: [
-      scale_ms: rate_limit_window,
-      limit: System.get_env("TED_RATE_LIMIT_WEBSITE", "60") |> String.to_integer()
-    ],
     documentation: [
       scale_ms: rate_limit_window,
       limit: System.get_env("TED_RATE_LIMIT_DOCUMENTATION", "60") |> String.to_integer()

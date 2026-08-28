@@ -56,6 +56,8 @@ defmodule TedWeb.ClaimControllerTest do
 
     assert confirmed.status == 200, confirmed.resp_body
     assert confirmed.resp_body =~ "Access confirmed"
+    assert confirmed.resp_body =~ "--font-size: 16px"
+    assert confirmed.resp_body =~ ~s(data-part="site-header")
     assert {:ok, token} = AgentAuth.exchange_claim(registration.claim_token, auth_options)
     assert "profile:write" in String.split(token.scope)
   end
