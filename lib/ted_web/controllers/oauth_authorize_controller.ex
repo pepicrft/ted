@@ -318,7 +318,7 @@ defmodule TedWeb.OAuthAuthorizeController do
   defp error_message_text(_reason), do: "This authorization request is invalid or has expired."
 
   defp page(content) do
-    """
+    TedWeb.Theme.inject("""
     <!doctype html>
     <html lang="en">
       <head>
@@ -328,27 +328,26 @@ defmodule TedWeb.OAuthAuthorizeController do
         <link rel="icon" href="/favicon.ico" sizes="any">
         <title>Ted connection request</title>
         <style>
-          :root { color-scheme: light dark; font-family: ui-monospace, monospace; }
-          body { min-height: 100vh; display: grid; place-items: center; margin: 0; background: #111; color: #f5f1e8; }
-          main { width: min(34rem, calc(100vw - 3rem)); border: 1px solid #625f58; border-radius: 1rem; padding: 2rem; background: #1b1a18; box-shadow: 0 1.5rem 5rem #0008; }
-          [data-part="eyebrow"] { color: #e5ad55; text-transform: uppercase; letter-spacing: .12em; font-size: .8rem; }
-          [data-part="notice"] { color: #aaa59b; font-size: .85rem; line-height: 1.5; margin-top: 1.5rem; }
-          [data-part="error"] { color: #ffb4a8; border-left: 2px solid #ffb4a8; padding-left: .75rem; }
-          h1 { font-size: 2rem; margin: .5rem 0 1rem; }
-          p, li { line-height: 1.55; }
+          /* ted-theme */
+          main { width: min(var(--form-width), calc(100% - 2rem)); margin: 2rem auto; border: 1px solid var(--border); padding: 1rem; }
+          [data-part="eyebrow"] { margin: 0 0 .5rem; font-weight: 700; }
+          [data-part="notice"] { color: var(--muted); margin-top: 1.5rem; }
+          [data-part="error"] { padding: .5rem; color: var(--danger-text); background: var(--danger-background); border: 1px solid var(--danger-border); }
+          h1 { margin: 0 0 1rem; font-weight: 700; }
+          p { margin: .5rem 0 1rem; }
           ul { padding-left: 1.25rem; }
           form { display: grid; gap: .75rem; margin-top: 1.5rem; }
           [data-part="sign-out"] { margin-top: .75rem; }
-          input, button { box-sizing: border-box; width: 100%; border: 1px solid #625f58; border-radius: .5rem; padding: .8rem; font: inherit; }
-          input { background: #111; color: inherit; }
-          button { margin-top: .5rem; background: #e5ad55; color: #1b1a18; border-color: #e5ad55; font-weight: 700; cursor: pointer; }
-          [data-part="secondary-button"], [data-part="link-button"] { background: transparent; color: #f5f1e8; border-color: #625f58; }
-          [data-part="link-button"] { border: 0; padding: 0; text-align: left; font-weight: 400; }
+          form button { justify-self: start; margin-top: .25rem; }
+          [data-part="secondary-button"] { color: var(--text); background: var(--button); border-color: var(--border); }
+          [data-part="secondary-button"]:hover { background: var(--button-hover); }
+          [data-part="link-button"] { padding: 0; color: var(--link); background: transparent; border: 0; text-align: left; }
+          [data-part="link-button"]:hover { color: var(--link-hover); text-decoration: underline; }
         </style>
       </head>
-      <body>#{content}</body>
+      <body>#{TedWeb.Theme.header()}#{content}</body>
     </html>
-    """
+    """)
   end
 
   defp error_message(nil), do: ""

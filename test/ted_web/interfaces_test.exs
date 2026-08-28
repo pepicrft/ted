@@ -65,11 +65,14 @@ defmodule TedWeb.InterfacesTest do
     assert reference.status == 200
     assert reference.resp_body =~ "Ted application programming interface reference"
     assert reference.resp_body =~ ~s(rel="icon" href="/favicon.ico")
+    assert reference.resp_body =~ "--font-size: 16px"
+    assert reference.resp_body =~ ~s(data-part="site-header")
 
     terms = DataCase.endpoint_conn(:get, "/terms", nil)
     assert terms.status == 200
     assert terms.resp_body =~ "Your decision and responsibility"
     assert terms.resp_body =~ "Nothing in these terms excludes or limits liability"
+    assert terms.resp_body =~ "--font-size: 16px"
 
     favicon = DataCase.endpoint_conn(:get, "/favicon.ico", nil)
     assert favicon.status == 200

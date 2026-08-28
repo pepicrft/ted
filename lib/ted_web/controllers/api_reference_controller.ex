@@ -29,8 +29,15 @@ defmodule TedWeb.ApiReferenceController do
         <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png">
         <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png">
         <title>Ted application programming interface reference</title>
+        <style>
+          #{TedWeb.Theme.styles()}
+          #app { border-top: 1px solid var(--border-soft); }
+          #app, #app * { font-family: var(--font) !important; font-size: var(--font-size) !important; }
+          #app :is(button, input, select, textarea, [role="button"]) { border-radius: 0 !important; }
+        </style>
       </head>
       <body>
+        #{TedWeb.Theme.header()}
         <noscript><p>JavaScript is required for the interactive reference. The <a href="/openapi.json">OpenAPI document</a> remains available directly.</p></noscript>
         <div id="app"></div>
         <script src="#{@scalar_url}" integrity="#{@scalar_integrity}" crossorigin="anonymous"></script>

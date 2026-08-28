@@ -55,6 +55,8 @@ defmodule TedWeb.OAuthFlowTest do
     assert consent.status == 200
     assert consent.resp_body =~ "Connect Hermes?"
     assert consent.resp_body =~ "Allow access"
+    assert consent.resp_body =~ "--font-size: 16px"
+    assert consent.resp_body =~ ~s(data-part="site-header")
 
     csrf_token = csrf_token(consent.resp_body)
 

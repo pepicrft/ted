@@ -1,127 +1,108 @@
 defmodule TedWeb.Theme do
   @moduledoc """
-  The design tokens shared by Ted's browser surfaces.
+  The shared stylesheet and navigation for Ted's browser surfaces.
 
-  Pages inline their own stylesheet, so the tokens are injected into each
-  `<style>` block instead of being served as a separate file. A page that needs
-  a different envelope overrides the token on its own root rather than writing
-  a literal value, which keeps one vocabulary across the browser pages and
-  the Open Graph cards rendered from them.
-
-  Values are grouped as surfaces, typefaces, the type scale, the spacing scale,
-  rules, and layout measures. The responsive blocks restate the tokens that
-  change with the viewport, so the pages themselves rarely need a breakpoint.
+  Ted keeps its browser interface deliberately small and document-like. Every
+  element uses the same type size, while weight, spacing, rules, and a limited
+  set of semantic colors provide hierarchy.
   """
 
-  @tokens ~S"""
+  @styles ~S"""
   :root {
     color-scheme: light;
-
-    /* Surfaces and ink */
-    --paper: #f7f0de;
-    --wash: #eee4cc;
-    --ink: #15213a;
-    --ink-inverted: #f7f0de;
-    --muted: #687187;
-    --accent: #234c87;
-    --highlight: #f2d66f;
-    --rule: #c9c2b2;
-    --rule-inverted: #788bac;
-    --positive-rule: #9cc5ae;
-    --positive-ink: #b8dec7;
-    --negative-rule: #e5a69a;
-    --negative-ink: #f1b7ac;
-
-    /* Typefaces */
-    --serif: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, serif;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-
-    /* Type scale */
-    --text-micro: 11px;
-    --text-mini: 12px;
-    --text-small: 13px;
-    --text-label: 14px;
-    --text-meta: 15px;
-    --text-body: 16px;
-    --text-root: 18px;
-    --text-lead: 22px;
-    --text-feature: 24px;
-    --text-subheading: 25px;
-    --text-heading: clamp(34px, 4vw, 50px);
-    --text-title: clamp(50px, 6.2vw, 78px);
-
-    /* Weight, leading, and tracking */
-    --weight-medium: 500;
-    --weight-semibold: 600;
-    --weight-display: 650;
-    --leading-flat: 1;
-    --leading-tight: 1.08;
-    --leading-snug: 1.4;
-    --leading-normal: 1.55;
-    --leading-loose: 1.7;
-    --tracking-title: -.06em;
-    --tracking-heading: -.045em;
-
-    /* Spacing scale */
-    --space-1: 4px;
-    --space-2: 8px;
-    --space-3: 12px;
-    --space-4: 16px;
-    --space-5: 20px;
-    --space-6: 24px;
-    --space-7: 32px;
-    --space-8: 40px;
-    --space-9: 48px;
-    --space-10: 64px;
-    --space-11: 80px;
-    --space-12: 96px;
-    --space-13: 112px;
-    --space-14: 128px;
-
-    /* Rules */
-    --rule-width: 1px;
-    --accent-width: 2px;
-
-    /* Layout */
-    --page-width: 1120px;
-    --page-gutter: 48px;
-    --measure-display: 780px;
-    --measure-lead: 730px;
-    --measure-prose: 760px;
-    --measure-aside: 540px;
-    --measure-label: 300px;
-    --column-label: 180px;
-    --column-aside: 240px;
-    --column-term: 190px;
+    --background: #ffffff;
+    --surface: #f4f4f4;
+    --text: #212529;
+    --muted: #666666;
+    --link: #007bff;
+    --link-hover: #0056b3;
+    --border: #888888;
+    --border-soft: #dee2e6;
+    --button: #e9ecef;
+    --button-hover: #f8f9fa;
+    --primary: #007bff;
+    --primary-hover: #0069d9;
+    --primary-border: #001933;
+    --focus: #80bdff;
+    --danger-background: #f8d7da;
+    --danger-text: #721c24;
+    --danger-border: #f5c6cb;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-size: 16px;
+    --line-height: 1.5;
+    --content-width: 960px;
+    --form-width: 560px;
   }
 
-  @media (max-width: 800px) {
-    :root {
-      --page-width: 680px;
-      --page-gutter: 32px;
-    }
+  * { box-sizing: border-box; font-size: inherit; }
+  html, body { min-height: 100%; margin: 0; }
+  html, body, input, button, select, textarea { font: var(--font-size)/var(--line-height) var(--font); }
+  body { background: var(--background); color: var(--text); }
+  h1, h2, h3, h4, h5, h6, p, li, dt, dd, label, input, button, code, pre { font-size: inherit; }
+  h1, h2, h3, h4, h5, h6 { line-height: inherit; }
+  a { color: var(--link); }
+  a:hover { color: var(--link-hover); }
+
+  [data-part="site-header"] { border-bottom: 1px solid var(--border-soft); }
+  [data-part="site-header"] nav {
+    display: flex;
+    align-items: baseline;
+    gap: 1rem;
+    width: min(var(--content-width), calc(100% - 2rem));
+    margin: 0 auto;
+    padding: .5rem 0;
   }
+  [data-part="site-header"] a { color: var(--muted); text-decoration: none; }
+  [data-part="site-header"] a:hover { color: var(--link-hover); text-decoration: underline; }
+  [data-part="site-header"] [data-part="brand"] { color: var(--text); font-weight: 700; }
 
-  @media (max-width: 560px) {
-    :root {
-      --page-width: 520px;
-      --page-gutter: 24px;
-      --text-root: 17px;
-      --text-title: clamp(44px, 13vw, 62px);
-    }
+  input:not([type="hidden"]) {
+    display: block;
+    width: 100%;
+    padding: .375rem;
+    color: var(--text);
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 0;
   }
+  input:not([type="hidden"]):focus {
+    outline: 0;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 .2rem rgb(0 123 255 / 25%);
+  }
+  button {
+    display: inline-block;
+    width: auto;
+    padding: .1rem .75rem;
+    color: #ffffff;
+    background: var(--primary);
+    border: 1px solid var(--primary-border);
+    border-radius: 0;
+    cursor: pointer;
+  }
+  button:hover { background: var(--primary-hover); }
   """
 
-  @doc """
-  The `:root` token declarations, ready to be inlined in a `<style>` block.
+  @header """
+  <header data-part="site-header">
+    <nav aria-label="Ted">
+      <a href="/" data-part="brand">ted</a>
+      <a href="/docs">operations</a>
+      <a href="/auth.md">auth.md</a>
+      <a href="/terms">terms</a>
+    </nav>
+  </header>
   """
-  @spec tokens() :: String.t()
-  def tokens, do: @tokens
 
-  @doc """
-  Replaces the `/* ted-theme */` marker in a stylesheet with the tokens.
-  """
+  @doc "The shared browser stylesheet, ready to be inlined in a style block."
+  @spec styles() :: String.t()
+  def styles, do: @styles
+
+  @doc "Shared navigation for Ted's browser pages."
+  @spec header() :: String.t()
+  def header, do: @header
+
+  @doc "Replaces the shared-style marker in an inline stylesheet."
   @spec inject(String.t()) :: String.t()
-  def inject(css) when is_binary(css), do: String.replace(css, "/* ted-theme */", @tokens)
+  def inject(css) when is_binary(css), do: String.replace(css, "/* ted-theme */", @styles)
 end
