@@ -105,7 +105,7 @@ if config_env() == :prod do
 
   config :ted, Ted.Mailer,
     adapter: Swoosh.Adapters.SMTP,
-    relay: System.get_env("TED_SMTP_RELAY", "smtp-relay.pepicrft.me"),
+    relay: System.get_env("TED_SMTP_RELAY", "localhost"),
     port: System.get_env("TED_SMTP_PORT", "587") |> String.to_integer(),
     auth: :never,
     tls: :never,
@@ -117,7 +117,7 @@ config :ted,
   allowed_mcp_origins: allowed_mcp_origins,
   email_from:
     {System.get_env("TED_EMAIL_FROM_NAME", "Ted"),
-     System.get_env("TED_EMAIL_FROM_ADDRESS", "hello@ted.pepicrft.me")},
+     System.get_env("TED_EMAIL_FROM_ADDRESS", "ted@example.com")},
   telegram: [
     bot_token: System.get_env("TED_TELEGRAM_BOT_TOKEN"),
     webhook_secret: System.get_env("TED_TELEGRAM_WEBHOOK_SECRET")
