@@ -133,8 +133,8 @@ defmodule TedWeb.OAuthAuthorizeController do
 
   def authenticate(conn, %{"email" => email, "password" => password}) do
     case authorization_request(conn) do
-      {:ok, _request} ->
-        authenticate_authorization_user(conn, email, password)
+      {:ok, request} ->
+        authenticate_authorization_user(conn, request, email, password)
 
       {:error, reason} ->
         send_page(conn, 400, error_page(reason))
@@ -159,13 +159,14 @@ defmodule TedWeb.OAuthAuthorizeController do
     end
   end
 
-  defp authenticate_authorization_user(conn, email, password) do
+  defp authenticate_authorization_user(conn, request, email, password) do
     case Accounts.authenticate_user(email, password, repo(conn)) do
       {:ok, user} ->
         case email_verified(user) do
           :ok ->
             conn
             |> configure_session(renew: true)
+            |> put_session(:ted_oauth_authorization, request)
             |> put_session(:ted_user_id, user.id)
             |> redirect(to: "/oauth2/authorize")
 
