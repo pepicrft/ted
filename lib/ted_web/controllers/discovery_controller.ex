@@ -4,6 +4,7 @@ defmodule TedWeb.DiscoveryController do
 
   alias OpenApiSpex.Schema
   alias Ted.AgentAuth
+  alias Ted.OAuth
   alias TedWeb.PublicOrigin
 
   tags ["Agent authentication"]
@@ -67,9 +68,15 @@ defmodule TedWeb.DiscoveryController do
       scopes_supported: AgentAuth.scopes(),
       bearer_methods_supported: ["header"],
       issuer: origin,
+      authorization_endpoint: origin <> "/oauth2/authorize",
       token_endpoint: origin <> "/oauth2/token",
       revocation_endpoint: origin <> "/oauth2/revoke",
-      grant_types_supported: [AgentAuth.claim_grant(), AgentAuth.jwt_bearer_grant()],
+      registration_endpoint: origin <> "/oauth2/register",
+      grant_types_supported:
+        OAuth.supported_grants() ++ [AgentAuth.claim_grant(), AgentAuth.jwt_bearer_grant()],
+      response_types_supported: ["code"],
+      code_challenge_methods_supported: ["S256"],
+      authorization_response_iss_parameter_supported: true,
       token_endpoint_auth_methods_supported: ["none"],
       jwks_uri: origin <> "/.well-known/jwks.json",
       agent_auth: %{

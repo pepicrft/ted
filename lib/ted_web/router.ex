@@ -41,6 +41,14 @@ defmodule TedWeb.Router do
     plug TedWeb.RateLimit, bucket: :authentication, response: :text
   end
 
+  pipeline :oauth_authorization do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+    plug TedWeb.RateLimit, bucket: :authentication, response: :text
+  end
+
   scope "/", TedWeb do
     pipe_through :website
 
@@ -87,6 +95,7 @@ defmodule TedWeb.Router do
     post "/agent/identity", AgentIdentityController, :create
     post "/agent/identity/claim", AgentIdentityController, :claim
     post "/agent/event/notify", DiscoveryController, :event_notify
+    post "/oauth2/register", OAuthRegistrationController, :register
     post "/oauth2/token", OAuthController, :token
     post "/oauth2/revoke", OAuthController, :revoke
   end
@@ -111,6 +120,16 @@ defmodule TedWeb.Router do
 
     post "/agent/identity/claim/confirm", ClaimController, :confirm
     post "/agent/identity/claim/sign-out", ClaimController, :sign_out
+  end
+
+  scope "/", TedWeb do
+    pipe_through :oauth_authorization
+
+    get "/oauth2/authorize", OAuthAuthorizeController, :authorize
+    post "/oauth2/authorize", OAuthAuthorizeController, :approve
+    get "/oauth2/authorize/sign-in", OAuthAuthorizeController, :sign_in
+    post "/oauth2/authorize/sign-in", OAuthAuthorizeController, :authenticate
+    post "/oauth2/authorize/sign-out", OAuthAuthorizeController, :sign_out
   end
 
   scope "/" do
