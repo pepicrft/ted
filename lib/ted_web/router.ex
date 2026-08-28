@@ -55,6 +55,10 @@ defmodule TedWeb.Router do
     put "/api/profile", CoachingController, :update_profile
     post "/api/check-ins", CoachingController, :record_check_in
     post "/api/workouts", CoachingController, :log_workout
+    get "/api/workout-templates", CoachingController, :list_workout_templates
+    put "/api/workout-templates", CoachingController, :save_workout_template
+    get "/api/workout-templates/:id/preparation", CoachingController, :prepare_workout
+    get "/api/workout-templates/:id", CoachingController, :get_workout_template
     post "/api/meals", CoachingController, :log_meal
     post "/api/meal-recommendations", CoachingController, :recommend_meal
     get "/api/objectives", CoachingController, :list_objectives

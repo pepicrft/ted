@@ -1,5 +1,7 @@
 # ⚽ Ted
 
+![A welcoming workout illustration with a coach holding a dumbbell](priv/static/assets/workouts/workout-header.png)
+
 > A self-hosted, headless coach for strength training and nutrition.
 
 Ted turns objectives, check-ins, meals, workouts, and recovery signals into a plan you can adjust as life happens. It tracks the facts, reviews trends over time, and suggests the next useful action without pretending that one plan fits everyone.
@@ -48,9 +50,12 @@ The shared operation catalog includes tools to:
 - read or update a coaching profile;
 - set and list objectives;
 - record check-ins, meals, and workouts;
+- create, refine, and prepare named workout templates with configuration and visual references;
 - ask for a preference-aware meal suggestion;
 - build, read, and review a plan;
 - read today's actions and recent progress.
+
+Workout templates preserve a name, ordered movement configuration, a workout overview image, and a dedicated image, alternative text, and direct video link for every movement. The included templates use original images served from the same Ted installation. The [exercise catalog](docs/exercise-catalog.md) records every included movement and its visual and video reference. A client can use `prepare_workout` to show the active movement's configuration, image, and video link during a session, then pass the returned template identifier and version to `log_workout` so the completed record retains its provenance. Images and linked videos are recognition and learning aids, not a substitute for qualified instruction. Stop if a movement is painful.
 
 ### auth.md agents
 

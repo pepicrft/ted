@@ -14,7 +14,8 @@ defmodule Ted.Coaching do
     Profile,
     Review,
     Reviewer,
-    Workout
+    Workout,
+    WorkoutTemplate
   }
 
   alias Ted.Repo
@@ -53,13 +54,79 @@ defmodule Ted.Coaching do
 
   @spec log_workout(Ecto.UUID.t(), map(), module()) :: {:ok, map()} | {:error, term()}
   def log_workout(user_id, attrs, repo \\ Repo) when is_map(attrs) do
-    with {:ok, performed_on} <- date_value(Map.get(attrs, "performed_on"), Date.utc_today()) do
+    with {:ok, performed_on} <- date_value(Map.get(attrs, "performed_on"), Date.utc_today()),
+         :ok <- valid_workout_template_reference?(user_id, attrs, repo) do
       attrs = attrs |> Map.put("user_id", user_id) |> Map.put("performed_on", performed_on)
 
       %Workout{}
       |> Workout.changeset(attrs)
       |> repo.insert()
       |> map_result(&workout_map/1)
+    end
+  end
+
+  @spec list_workout_templates(Ecto.UUID.t(), module()) :: {:ok, [map()]}
+  def list_workout_templates(user_id, repo \\ Repo) do
+    templates =
+      repo.all(
+        from(template in WorkoutTemplate,
+          where: template.user_id == ^user_id,
+          order_by: [desc: template.updated_at, asc: template.name]
+        )
+      )
+
+    {:ok, Enum.map(templates, &workout_template_map/1)}
+  end
+
+  @spec get_workout_template(Ecto.UUID.t(), Ecto.UUID.t(), module()) ::
+          {:ok, map()} | {:error, :not_found}
+  def get_workout_template(user_id, template_id, repo \\ Repo)
+
+  def get_workout_template(user_id, template_id, repo)
+      when is_binary(user_id) and is_binary(template_id) do
+    case repo.get_by(WorkoutTemplate, id: template_id, user_id: user_id) do
+      nil -> {:error, :not_found}
+      template -> {:ok, workout_template_map(template)}
+    end
+  end
+
+  def get_workout_template(_user_id, _template_id, _repo), do: {:error, :not_found}
+
+  @spec save_workout_template(Ecto.UUID.t(), map(), module()) :: {:ok, map()} | {:error, term()}
+  def save_workout_template(user_id, attrs, repo \\ Repo) when is_map(attrs) do
+    with {:ok, template} <- template_for_save(user_id, Map.get(attrs, "id"), repo) do
+      version = if is_nil(template.id), do: 1, else: template.version + 1
+
+      attrs =
+        attrs
+        |> Map.drop(["id", "version"])
+        |> Map.put("user_id", user_id)
+        |> Map.put("version", version)
+
+      template
+      |> WorkoutTemplate.changeset(attrs)
+      |> persist(repo)
+      |> map_result(&workout_template_map/1)
+    end
+  end
+
+  @spec prepare_workout(Ecto.UUID.t(), Ecto.UUID.t(), module()) ::
+          {:ok, map()} | {:error, :not_found}
+  def prepare_workout(user_id, template_id, repo \\ Repo) do
+    with {:ok, template} <- get_workout_template(user_id, template_id, repo) do
+      {:ok,
+       %{
+         template: template,
+         workout: %{
+           workout_template_id: template.id,
+           workout_template_version: template.version,
+           name: template.name,
+           duration_minutes: template.estimated_duration_minutes,
+           movements: template.movements
+         },
+         visual_guidance:
+           "Use the image as a recognition cue, not as a substitute for learning a new movement with qualified instruction. Stop if pain increases or movement quality deteriorates."
+       }}
     end
   end
 
@@ -397,6 +464,37 @@ defmodule Ted.Coaching do
     )
   end
 
+  defp template_for_save(_user_id, nil, _repo), do: {:ok, %WorkoutTemplate{}}
+
+  defp template_for_save(user_id, template_id, repo) when is_binary(template_id) do
+    case repo.get_by(WorkoutTemplate, id: template_id, user_id: user_id) do
+      nil -> {:error, :not_found}
+      template -> {:ok, template}
+    end
+  end
+
+  defp template_for_save(_user_id, _template_id, _repo), do: {:error, :invalid_arguments}
+
+  defp valid_workout_template_reference?(user_id, attrs, repo) do
+    case {Map.get(attrs, "workout_template_id"), Map.get(attrs, "workout_template_version")} do
+      {nil, nil} ->
+        :ok
+
+      {template_id, version}
+      when is_binary(template_id) and is_integer(version) and version > 0 ->
+        if repo.exists?(
+             from(template in WorkoutTemplate,
+               where: template.id == ^template_id and template.user_id == ^user_id
+             )
+           ),
+           do: :ok,
+           else: {:error, :not_found}
+
+      _reference ->
+        {:error, :invalid_arguments}
+    end
+  end
+
   defp persist(%Ecto.Changeset{data: %{id: nil}} = changeset, repo), do: repo.insert(changeset)
   defp persist(changeset, repo), do: repo.update(changeset)
 
@@ -490,7 +588,24 @@ defmodule Ted.Coaching do
       perceived_exertion: workout.perceived_exertion,
       movements: workout.movements,
       notes: workout.notes,
+      workout_template_id: workout.workout_template_id,
+      workout_template_version: workout.workout_template_version,
       created_at: workout.inserted_at
+    }
+  end
+
+  defp workout_template_map(template) do
+    %{
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      estimated_duration_minutes: template.estimated_duration_minutes,
+      movements: template.movements,
+      image_url: template.image_url,
+      image_alt: template.image_alt,
+      version: template.version,
+      created_at: template.inserted_at,
+      updated_at: template.updated_at
     }
   end
 

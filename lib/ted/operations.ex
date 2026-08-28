@@ -43,6 +43,37 @@ defmodule Ted.Operations do
         annotations: %{idempotentHint: false}
       },
       %{
+        name: "list_workout_templates",
+        description:
+          "List the current person's named workout templates with their configuration and visual reference.",
+        scope: "workouts:read",
+        inputSchema: object_schema(),
+        annotations: %{readOnlyHint: true}
+      },
+      %{
+        name: "get_workout_template",
+        description: "Read one named workout template and its movement configuration.",
+        scope: "workouts:read",
+        inputSchema: workout_template_reference_schema(),
+        annotations: %{readOnlyHint: true}
+      },
+      %{
+        name: "save_workout_template",
+        description:
+          "Create or refine a named workout template with its movements, configuration, and visual reference.",
+        scope: "workouts:write",
+        inputSchema: workout_template_schema(),
+        annotations: %{idempotentHint: false}
+      },
+      %{
+        name: "prepare_workout",
+        description:
+          "Return a workout-ready copy of a named template, including its configuration and visual reference.",
+        scope: "workouts:read",
+        inputSchema: workout_template_reference_schema(),
+        annotations: %{readOnlyHint: true}
+      },
+      %{
         name: "log_meal",
         description: "Record a meal with optional energy and macronutrient estimates.",
         scope: "meals:write",
@@ -143,6 +174,24 @@ defmodule Ted.Operations do
   def call("log_workout", arguments, repo, authorization) when is_map(arguments),
     do: with_user(authorization, &Coaching.log_workout(&1, arguments, repo))
 
+  def call("list_workout_templates", _arguments, repo, authorization),
+    do: with_user(authorization, &Coaching.list_workout_templates(&1, repo))
+
+  def call("get_workout_template", arguments, repo, authorization) when is_map(arguments) do
+    with {:ok, template_id} <- workout_template_id(arguments) do
+      with_user(authorization, &Coaching.get_workout_template(&1, template_id, repo))
+    end
+  end
+
+  def call("save_workout_template", arguments, repo, authorization) when is_map(arguments),
+    do: with_user(authorization, &Coaching.save_workout_template(&1, arguments, repo))
+
+  def call("prepare_workout", arguments, repo, authorization) when is_map(arguments) do
+    with {:ok, template_id} <- workout_template_id(arguments) do
+      with_user(authorization, &Coaching.prepare_workout(&1, template_id, repo))
+    end
+  end
+
   def call("log_meal", arguments, repo, authorization) when is_map(arguments),
     do: with_user(authorization, &Coaching.log_meal(&1, arguments, repo))
 
@@ -191,6 +240,11 @@ defmodule Ted.Operations do
   defp optional_date(value) when is_binary(value), do: Date.from_iso8601(value)
   defp optional_date(_value), do: {:error, :invalid_arguments}
 
+  defp workout_template_id(%{"id" => template_id}) when is_binary(template_id),
+    do: {:ok, template_id}
+
+  defp workout_template_id(_arguments), do: {:error, :invalid_arguments}
+
   defp profile_schema do
     object_schema(%{
       "timezone" => string_schema(),
@@ -226,7 +280,9 @@ defmodule Ted.Operations do
         "duration_minutes" => integer_schema(1, 480),
         "perceived_exertion" => integer_schema(1, 10),
         "movements" => array_schema(%{type: "object", additionalProperties: true}),
-        "notes" => string_schema()
+        "notes" => string_schema(),
+        "workout_template_id" => string_schema(),
+        "workout_template_version" => integer_schema(1, 1_000_000)
       },
       ["name"]
     )
@@ -272,6 +328,53 @@ defmodule Ted.Operations do
       },
       ["kind", "label"]
     )
+  end
+
+  defp workout_template_schema do
+    object_schema(
+      %{
+        "id" => string_schema(),
+        "name" => string_schema(),
+        "description" => string_schema(),
+        "estimated_duration_minutes" => integer_schema(1, 480),
+        "movements" => array_schema(workout_template_movement_schema()),
+        "image_url" => string_schema(),
+        "image_alt" => string_schema()
+      },
+      ["name", "movements", "image_url", "image_alt"]
+    )
+  end
+
+  defp workout_template_reference_schema,
+    do: object_schema(%{"id" => string_schema()}, ["id"])
+
+  defp workout_template_movement_schema do
+    %{
+      type: "object",
+      properties: %{
+        "id" => string_schema(),
+        "name" => string_schema(),
+        "sets" => integer_schema(1, 10),
+        "repetitions" => string_schema(),
+        "rest_seconds" => integer_schema(0, 900),
+        "instructions" => string_schema(),
+        "image_url" => string_schema(),
+        "image_alt" => string_schema(),
+        "video_url" => string_schema()
+      },
+      required: [
+        "id",
+        "name",
+        "sets",
+        "repetitions",
+        "rest_seconds",
+        "instructions",
+        "image_url",
+        "image_alt",
+        "video_url"
+      ],
+      additionalProperties: false
+    }
   end
 
   defp object_schema(properties \\ %{}, required \\ []) do

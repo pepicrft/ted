@@ -18,6 +18,9 @@ defmodule Ted.Coaching.Workout do
     field(:notes, :string)
 
     belongs_to(:user, Ted.Accounts.User)
+    belongs_to(:workout_template, Ted.Coaching.WorkoutTemplate)
+
+    field(:workout_template_version, :integer)
 
     timestamps()
   end
@@ -31,7 +34,9 @@ defmodule Ted.Coaching.Workout do
       :duration_minutes,
       :perceived_exertion,
       :movements,
-      :notes
+      :notes,
+      :workout_template_id,
+      :workout_template_version
     ])
     |> validate_required([:user_id, :performed_on, :name])
     |> validate_length(:name, min: 1, max: 160)
@@ -41,5 +46,6 @@ defmodule Ted.Coaching.Workout do
       less_than_or_equal_to: 10
     )
     |> validate_length(:notes, max: 4_000)
+    |> validate_number(:workout_template_version, greater_than: 0)
   end
 end

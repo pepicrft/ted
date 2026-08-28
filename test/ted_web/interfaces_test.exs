@@ -77,6 +77,10 @@ defmodule TedWeb.InterfacesTest do
     open_api = DataCase.endpoint_conn(:get, "/openapi.json", nil)
     paths = open_api.resp_body |> JSON.decode!() |> Map.fetch!("paths")
 
+    assert Map.has_key?(paths, "/api/workout-templates")
+    assert Map.has_key?(paths, "/api/workout-templates/{id}")
+    assert Map.has_key?(paths, "/api/workout-templates/{id}/preparation")
+
     refute Map.has_key?(paths, "/terms")
     refute Map.has_key?(paths, "/privacy")
     refute Map.has_key?(paths, "/cookies")
@@ -116,6 +120,8 @@ defmodule TedWeb.InterfacesTest do
     assert "set_objective" in names
     assert "review_plan" in names
     assert "recommend_meal" in names
+    assert "save_workout_template" in names
+    assert "prepare_workout" in names
 
     called =
       DataCase.endpoint_conn(
@@ -170,6 +176,78 @@ defmodule TedWeb.InterfacesTest do
 
     assert recommendation["suggestions"] != []
     assert recommendation["evidence"] != []
+
+    template = %{
+      "name" => "Full-body strength A",
+      "estimated_duration_minutes" => 50,
+      "image_url" => "/assets/workouts/full-body-strength-a.png",
+      "image_alt" => "A three-panel barbell workout reference illustration.",
+      "movements" => [
+        %{
+          "id" => "back-squat",
+          "name" => "Barbell squat",
+          "sets" => 3,
+          "repetitions" => "5",
+          "rest_seconds" => 150,
+          "instructions" => "Use a controlled load and stop if pain increases.",
+          "image_url" => "/assets/exercises/barbell-squat.png",
+          "image_alt" => "Original reference illustration of a barbell back squat.",
+          "video_url" => "https://www.youtube.com/watch?v=8PMjqgR8Wa8"
+        }
+      ]
+    }
+
+    saved =
+      DataCase.endpoint_conn(
+        :post,
+        "/mcp",
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 4,
+          "method" => "tools/call",
+          "params" => %{"name" => "save_workout_template", "arguments" => template}
+        },
+        access_token
+      )
+
+    assert saved.status == 200
+
+    saved_template =
+      saved.resp_body
+      |> JSON.decode!()
+      |> get_in(["result", "structuredContent", "result"])
+
+    assert saved_template["version"] == 1
+
+    prepared =
+      DataCase.endpoint_conn(
+        :post,
+        "/mcp",
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 5,
+          "method" => "tools/call",
+          "params" => %{
+            "name" => "prepare_workout",
+            "arguments" => %{"id" => saved_template["id"]}
+          }
+        },
+        access_token
+      )
+
+    assert prepared.status == 200
+
+    prepared_workout =
+      prepared.resp_body
+      |> JSON.decode!()
+      |> get_in(["result", "structuredContent", "result", "workout"])
+
+    assert prepared_workout["workout_template_id"] == saved_template["id"]
+    assert prepared_workout["workout_template_version"] == 1
+
+    assert [
+             %{"video_url" => "https://www.youtube.com/watch?v=8PMjqgR8Wa8"}
+           ] = prepared_workout["movements"]
   end
 
   defp agent_access_token(repo) do
