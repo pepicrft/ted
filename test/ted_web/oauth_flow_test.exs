@@ -59,6 +59,10 @@ defmodule TedWeb.OAuthFlowTest do
     assert consent.resp_body =~ "--font-size: 16px"
     assert consent.resp_body =~ ~s(data-part="site-header")
 
+    assert Plug.Conn.get_resp_header(consent, "content-security-policy") == [
+             "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self' http://127.0.0.1:47832; base-uri 'none'; frame-ancestors 'none'"
+           ]
+
     csrf_token = csrf_token(consent.resp_body)
 
     approval =

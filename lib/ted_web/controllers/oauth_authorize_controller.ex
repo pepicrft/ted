@@ -154,7 +154,7 @@ defmodule TedWeb.OAuthAuthorizeController do
 
   defp render_or_request_sign_in(conn, request) do
     case verified_user(conn) do
-      {:ok, user} -> send_page(conn, 200, consent_page(request, user))
+      {:ok, user} -> send_page(conn, 200, consent_page(request, user), request.redirect_uri)
       {:error, _reason} -> redirect(conn, to: "/oauth2/authorize/sign-in")
     end
   end
@@ -370,17 +370,34 @@ defmodule TedWeb.OAuthAuthorizeController do
 
   defp request_id_matches?(_request_id, _expected_id), do: false
 
-  defp send_page(conn, status, body) do
+  defp send_page(conn, status, body, redirect_uri \\ nil) do
     conn
     |> put_resp_content_type("text/html", "utf-8")
     |> put_resp_header("cache-control", "no-store")
     |> put_resp_header("referrer-policy", "no-referrer")
     |> put_resp_header(
       "content-security-policy",
-      "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'"
+      content_security_policy(redirect_uri)
     )
     |> send_resp(status, body)
   end
+
+  defp content_security_policy(redirect_uri) do
+    "default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; form-action 'self'#{redirect_origin(redirect_uri)}; base-uri 'none'; frame-ancestors 'none'"
+  end
+
+  defp redirect_origin(redirect_uri) when is_binary(redirect_uri) do
+    case URI.parse(redirect_uri) do
+      %URI{scheme: scheme, host: host, port: port}
+      when scheme in ["http", "https"] and is_binary(host) ->
+        " " <> URI.to_string(%URI{scheme: scheme, host: host, port: port})
+
+      _invalid_uri ->
+        ""
+    end
+  end
+
+  defp redirect_origin(_redirect_uri), do: ""
 
   defp escape(value) do
     value
