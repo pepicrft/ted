@@ -165,6 +165,8 @@ defmodule TedWeb.AuthMarkdownController do
     - `plans:read` and `plans:write`: read, build, and review coaching plans.
     - `mcp`: connect to the Model Context Protocol server with a resource-bound token.
 
+    A client that requests only `mcp` receives the complete coaching scope set above. Ted shows every granted scope on the consent page. A client can request `mcp` together with a narrower subset to limit its access.
+
     ## Service information
 
     - Service: `#{origin}`

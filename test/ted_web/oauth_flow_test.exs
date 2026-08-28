@@ -3,6 +3,7 @@ defmodule TedWeb.OAuthFlowTest do
 
   alias Ted.Accounts
   alias Ted.Accounts.User
+  alias Ted.AgentAuth
   alias Ted.DataCase
   alias Ted.OAuth
 
@@ -174,6 +175,34 @@ defmodule TedWeb.OAuthFlowTest do
       )
 
     assert revoked_after_replay.status == 401
+  end
+
+  test "an mcp-only authorization request expands to the complete coaching scope set", %{
+    repo: repo
+  } do
+    client = register_client(repo, ["authorization_code", "refresh_token"])
+    verifier = String.duplicate("ted-mcp-only-proof-", 4)
+    resource = TedWeb.Endpoint.url() <> "/mcp"
+    user = verified_user(repo, "mcp-only-owner@example.test")
+
+    query =
+      URI.encode_query(%{
+        "response_type" => "code",
+        "client_id" => client.client_id,
+        "redirect_uri" => hd(client.redirect_uris),
+        "scope" => "mcp",
+        "resource" => resource,
+        "code_challenge" => :crypto.hash(:sha256, verifier) |> Base.url_encode64(padding: false),
+        "code_challenge_method" => "S256"
+      })
+
+    consent = browser_conn(:get, "/oauth2/authorize?#{query}", nil, repo, %{ted_user_id: user.id})
+
+    assert consent.status == 200
+
+    for scope <- AgentAuth.scopes() do
+      assert consent.resp_body =~ "<li>#{scope}</li>"
+    end
   end
 
   test "an authorization-code replay revokes the whole authorization grant", %{repo: repo} do

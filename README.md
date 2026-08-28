@@ -45,6 +45,8 @@ The rules and meal suggestions are deterministic and traceable. [The evidence le
 
 Point a compatible client at `/mcp`. Ted publishes protected-resource and authorization-server discovery, supports dynamic client registration, and asks the person to sign in and approve the requested scopes. Access tokens are short lived, resource bound, and limited to that person's coaching records.
 
+Clients that request only the `mcp` scope receive Ted's complete coaching scope set and see every scope on the consent page. Clients can request `mcp` with a narrower subset to limit their access.
+
 The shared operation catalog includes tools to:
 
 - read or update a coaching profile;

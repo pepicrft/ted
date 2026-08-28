@@ -463,11 +463,14 @@ defmodule Ted.OAuth do
     scopes = scope |> String.split() |> Enum.uniq()
 
     if scopes != [] and Enum.all?(scopes, &(&1 in AgentAuth.scopes())) and "mcp" in scopes,
-      do: {:ok, scopes},
+      do: {:ok, scopes_for_mcp_request(scopes)},
       else: {:error, :invalid_scope}
   end
 
   defp requested_scopes(_scope), do: {:error, :invalid_scope}
+
+  defp scopes_for_mcp_request(["mcp"]), do: AgentAuth.scopes()
+  defp scopes_for_mcp_request(scopes), do: scopes
 
   defp resource(nil, issuer), do: {:ok, issuer <> "/mcp"}
   defp resource("", issuer), do: {:ok, issuer <> "/mcp"}
