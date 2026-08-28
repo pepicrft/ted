@@ -55,7 +55,7 @@ The shared operation catalog includes tools to:
 - build, read, and review a plan;
 - read today's actions and recent progress.
 
-Workout templates preserve a name, ordered movement configuration, a workout overview image, and a dedicated image, alternative text, and direct video link for every movement. The included templates use original images served from the same Ted installation. A client can use `prepare_workout` to show the active movement's configuration, image, and video link during a session, then pass the returned template identifier and version to `log_workout` so the completed record retains its provenance. Images and linked videos are recognition and learning aids, not a substitute for qualified instruction. Stop if a movement is painful.
+Workout templates preserve a name, ordered movement configuration, a workout overview image, and a dedicated image, alternative text, and direct video link for every movement. The included templates use original images served from the same Ted installation. The [exercise catalog](docs/exercise-catalog.md) records every included movement and its visual and video reference. A client can use `prepare_workout` to show the active movement's configuration, image, and video link during a session, then pass the returned template identifier and version to `log_workout` so the completed record retains its provenance. Images and linked videos are recognition and learning aids, not a substitute for qualified instruction. Stop if a movement is painful.
 
 ### auth.md agents
 

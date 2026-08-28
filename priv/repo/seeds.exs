@@ -29,7 +29,8 @@ ensure_template_guidance = fn user_id, template_name, guidance_by_movement_id ->
                 existing_value when is_binary(existing_value) and byte_size(existing_value) > 0 ->
                   updated_movement
 
-                _other -> Map.put(updated_movement, key, value)
+                _other ->
+                  Map.put(updated_movement, key, value)
               end
             end)
 
@@ -169,7 +170,8 @@ unless Repo.exists?(
   Repo.insert!(%WorkoutTemplate{
     user_id: local_id,
     name: "Full-body strength B",
-    description: "A second full-body barbell session that can alternate with Full-body strength A.",
+    description:
+      "A second full-body barbell session that can alternate with Full-body strength A.",
     estimated_duration_minutes: 50,
     image_url: "/assets/workouts/full-body-strength-b.png",
     image_alt:
@@ -210,6 +212,190 @@ unless Repo.exists?(
         "rest_seconds" => 120,
         "instructions" =>
           "Use a comfortable range of motion and stop if pain increases or balance is unreliable."
+      }
+    ]
+  })
+end
+
+unless Repo.exists?(
+         from(template in WorkoutTemplate,
+           where: template.user_id == ^local_id and template.name == "Machine full-body A"
+         )
+       ) do
+  Repo.insert!(%WorkoutTemplate{
+    user_id: local_id,
+    name: "Machine full-body A",
+    description:
+      "A repeatable full-body session using selectorized and cable equipment, with a visual reference and demonstration for every movement.",
+    estimated_duration_minutes: 55,
+    image_url: "/assets/exercises/machine-chest-press.png",
+    image_alt: "Original reference illustration of a selectorized machine chest press.",
+    movements: [
+      %{
+        "id" => "machine-leg-press",
+        "name" => "Machine leg press",
+        "image_url" => "/assets/exercises/machine-leg-press.png",
+        "image_alt" => "Original reference illustration of a horizontal selectorized leg press.",
+        "video_url" => "https://www.youtube.com/watch?v=nDh_BlnLCGc",
+        "sets" => 3,
+        "repetitions" => "8 to 12",
+        "rest_seconds" => 120,
+        "instructions" =>
+          "Place both feet evenly on the platform, keep your lower back supported, and use only a range you can control without pain."
+      },
+      %{
+        "id" => "machine-chest-press",
+        "name" => "Machine chest press",
+        "image_url" => "/assets/exercises/machine-chest-press.png",
+        "image_alt" => "Original reference illustration of a selectorized machine chest press.",
+        "video_url" => "https://www.youtube.com/watch?v=Qu7-ceCvq7w",
+        "sets" => 3,
+        "repetitions" => "8 to 12",
+        "rest_seconds" => 90,
+        "instructions" =>
+          "Set the handles at mid-chest height, keep your shoulder blades supported, and press without locking the elbows forcefully."
+      },
+      %{
+        "id" => "lat-pulldown",
+        "name" => "Lat pulldown",
+        "image_url" => "/assets/exercises/lat-pulldown.png",
+        "image_alt" => "Original reference illustration of a wide-grip lat pulldown.",
+        "video_url" => "https://www.youtube.com/watch?v=bNmvKpJSWKM",
+        "sets" => 3,
+        "repetitions" => "8 to 12",
+        "rest_seconds" => 90,
+        "instructions" =>
+          "Secure your thighs under the pads, keep your torso tall, and pull the bar toward the upper chest without leaning back sharply."
+      },
+      %{
+        "id" => "seated-cable-row",
+        "name" => "Seated cable row",
+        "image_url" => "/assets/exercises/seated-cable-row.png",
+        "image_alt" =>
+          "Original reference illustration of a seated cable row with a close-grip handle.",
+        "video_url" => "https://www.youtube.com/watch?v=8QuMq1GMMng",
+        "sets" => 3,
+        "repetitions" => "8 to 12",
+        "rest_seconds" => 90,
+        "instructions" =>
+          "Keep your torso upright, pull the handle toward the lower ribs, and return it under control without rounding your back."
+      },
+      %{
+        "id" => "machine-shoulder-press",
+        "name" => "Machine shoulder press",
+        "image_url" => "/assets/exercises/machine-shoulder-press.png",
+        "image_alt" =>
+          "Original reference illustration of a selectorized machine shoulder press.",
+        "video_url" => "https://www.youtube.com/watch?v=6v4nrRVySj0",
+        "sets" => 3,
+        "repetitions" => "8 to 12",
+        "rest_seconds" => 90,
+        "instructions" =>
+          "Adjust the seat so the handles start near ear height, keep your back on the pad, and press in a controlled range."
+      },
+      %{
+        "id" => "machine-leg-extension",
+        "name" => "Machine leg extension",
+        "image_url" => "/assets/exercises/machine-leg-extension.png",
+        "image_alt" => "Original reference illustration of a selectorized leg extension.",
+        "video_url" => "https://www.youtube.com/watch?v=ztNBgrGy6FQ",
+        "sets" => 2,
+        "repetitions" => "10 to 15",
+        "rest_seconds" => 75,
+        "instructions" =>
+          "Align your knees with the machine pivot, lift smoothly, and lower under control without forcing the knee joint at the top."
+      }
+    ]
+  })
+end
+
+unless Repo.exists?(
+         from(template in WorkoutTemplate,
+           where: template.user_id == ^local_id and template.name == "Machine and cable B"
+         )
+       ) do
+  Repo.insert!(%WorkoutTemplate{
+    user_id: local_id,
+    name: "Machine and cable B",
+    description:
+      "A complementary machine and cable session that includes posterior-leg, hip, arm, and vertical-pulling movements.",
+    estimated_duration_minutes: 50,
+    image_url: "/assets/exercises/machine-prone-leg-curl.png",
+    image_alt: "Original reference illustration of a prone selectorized leg curl.",
+    movements: [
+      %{
+        "id" => "machine-prone-leg-curl",
+        "name" => "Machine prone leg curl",
+        "image_url" => "/assets/exercises/machine-prone-leg-curl.png",
+        "image_alt" => "Original reference illustration of a prone selectorized leg curl.",
+        "video_url" => "https://www.youtube.com/watch?v=lGNeJsdqJwg",
+        "sets" => 3,
+        "repetitions" => "10 to 15",
+        "rest_seconds" => 75,
+        "instructions" =>
+          "Keep your hips in contact with the pad, curl the roller by bending the knees, and lower without snapping the weight stack."
+      },
+      %{
+        "id" => "machine-hip-abduction",
+        "name" => "Machine hip abduction",
+        "image_url" => "/assets/exercises/machine-hip-abduction.png",
+        "image_alt" => "Original reference illustration of a selectorized hip abduction machine.",
+        "video_url" => "https://www.youtube.com/watch?v=OjI5OpV6IWA",
+        "sets" => 2,
+        "repetitions" => "12 to 15",
+        "rest_seconds" => 60,
+        "instructions" =>
+          "Set the pads comfortably above the knees, keep your pelvis supported, and move the thighs outward with control."
+      },
+      %{
+        "id" => "machine-hip-adduction",
+        "name" => "Machine hip adduction",
+        "image_url" => "/assets/exercises/machine-hip-adduction.png",
+        "image_alt" => "Original reference illustration of a selectorized hip adduction machine.",
+        "video_url" => "https://www.youtube.com/watch?v=fwpMYCWdUNY",
+        "sets" => 2,
+        "repetitions" => "12 to 15",
+        "rest_seconds" => 60,
+        "instructions" =>
+          "Set the pads comfortably above the knees, keep your pelvis supported, and bring the thighs inward without using momentum."
+      },
+      %{
+        "id" => "cable-triceps-pressdown",
+        "name" => "Cable triceps pressdown",
+        "image_url" => "/assets/exercises/cable-triceps-pressdown.png",
+        "image_alt" =>
+          "Original reference illustration of a cable triceps pressdown with a straight bar.",
+        "video_url" => "https://www.youtube.com/watch?v=1FjkhpZsaxc",
+        "sets" => 2,
+        "repetitions" => "10 to 15",
+        "rest_seconds" => 60,
+        "instructions" =>
+          "Keep the elbows close to your ribs, press the bar down by straightening the elbows, and avoid swinging the torso."
+      },
+      %{
+        "id" => "cable-biceps-curl",
+        "name" => "Cable biceps curl",
+        "image_url" => "/assets/exercises/cable-biceps-curl.png",
+        "image_alt" =>
+          "Original reference illustration of a standing cable biceps curl with a straight bar.",
+        "video_url" => "https://www.youtube.com/watch?v=CrbTqNOlFgE",
+        "sets" => 2,
+        "repetitions" => "10 to 15",
+        "rest_seconds" => 60,
+        "instructions" =>
+          "Keep the elbows close to your sides, curl the bar without leaning back, and lower it slowly until the arms are nearly straight."
+      },
+      %{
+        "id" => "pull-up",
+        "name" => "Pull-up",
+        "image_url" => "/assets/exercises/pull-up.png",
+        "image_alt" => "Original reference illustration of a strict bodyweight pull-up.",
+        "video_url" => "https://www.youtube.com/watch?v=9rckBLbVe8c",
+        "sets" => 3,
+        "repetitions" => "3 to 8",
+        "rest_seconds" => 120,
+        "instructions" =>
+          "Start from a controlled hang, pull without kicking, and stop each set before the movement becomes painful or unstable."
       }
     ]
   })
@@ -314,7 +500,8 @@ unless Repo.exists?(
         "id" => "single-arm-row",
         "name" => "Single-arm dumbbell row",
         "image_url" => "/assets/exercises/single-arm-dumbbell-row.png",
-        "image_alt" => "Original reference illustration of a single-arm dumbbell row supported by a bench.",
+        "image_alt" =>
+          "Original reference illustration of a single-arm dumbbell row supported by a bench.",
         "video_url" => "https://www.youtube.com/watch?v=nNpxG9fGHoM",
         "sets" => 3,
         "repetitions" => "8 each side",
@@ -334,7 +521,8 @@ unless Repo.exists?(
   Repo.insert!(%WorkoutTemplate{
     user_id: alex_id,
     name: "Foundational full-body B",
-    description: "A minimal-equipment full-body session that can alternate with Foundational full-body.",
+    description:
+      "A minimal-equipment full-body session that can alternate with Foundational full-body.",
     estimated_duration_minutes: 30,
     image_url: "/assets/exercises/dumbbell-hip-hinge.png",
     image_alt: "Original reference illustration of a dumbbell hip hinge.",
@@ -452,7 +640,8 @@ ensure_template_guidance.(alex_id, "Foundational full-body", %{
   },
   "single-arm-row" => %{
     "image_url" => "/assets/exercises/single-arm-dumbbell-row.png",
-    "image_alt" => "Original reference illustration of a single-arm dumbbell row supported by a bench.",
+    "image_alt" =>
+      "Original reference illustration of a single-arm dumbbell row supported by a bench.",
     "video_url" => "https://www.youtube.com/watch?v=nNpxG9fGHoM"
   }
 })
