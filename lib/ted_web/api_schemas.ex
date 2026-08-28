@@ -71,8 +71,72 @@ defmodule TedWeb.ApiSchemas.Workout do
         duration_minutes: %OpenApiSpex.Schema{type: :integer, nullable: true},
         perceived_exertion: %OpenApiSpex.Schema{type: :integer, nullable: true},
         movements: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :object}},
-        notes: %OpenApiSpex.Schema{type: :string, nullable: true}
+        notes: %OpenApiSpex.Schema{type: :string, nullable: true},
+        workout_template_id: %OpenApiSpex.Schema{type: :string, format: :uuid, nullable: true},
+        workout_template_version: %OpenApiSpex.Schema{type: :integer, nullable: true}
       }
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.WorkoutTemplate do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Workout template",
+      type: :object,
+      properties: %{
+        id: %OpenApiSpex.Schema{type: :string, format: :uuid},
+        name: %OpenApiSpex.Schema{type: :string},
+        description: %OpenApiSpex.Schema{type: :string, nullable: true},
+        estimated_duration_minutes: %OpenApiSpex.Schema{type: :integer, nullable: true},
+        movements: %OpenApiSpex.Schema{
+          type: :array,
+          items: TedWeb.ApiSchemas.WorkoutTemplateMovement
+        },
+        image_url: %OpenApiSpex.Schema{type: :string},
+        image_alt: %OpenApiSpex.Schema{type: :string},
+        version: %OpenApiSpex.Schema{type: :integer}
+      },
+      required: [:name, :movements, :image_url, :image_alt]
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.WorkoutTemplateMovement do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Workout template movement",
+      type: :object,
+      properties: %{
+        id: %OpenApiSpex.Schema{type: :string},
+        name: %OpenApiSpex.Schema{type: :string},
+        sets: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 10},
+        repetitions: %OpenApiSpex.Schema{type: :string},
+        rest_seconds: %OpenApiSpex.Schema{type: :integer, minimum: 0, maximum: 900},
+        instructions: %OpenApiSpex.Schema{type: :string},
+        image_url: %OpenApiSpex.Schema{type: :string},
+        image_alt: %OpenApiSpex.Schema{type: :string},
+        video_url: %OpenApiSpex.Schema{type: :string}
+      },
+      required: [
+        :id,
+        :name,
+        :sets,
+        :repetitions,
+        :rest_seconds,
+        :instructions,
+        :image_url,
+        :image_alt,
+        :video_url
+      ]
     },
     derive?: false
   )

@@ -4,7 +4,7 @@ defmodule TedWeb.CoachingController do
 
   alias OpenApiSpex.Schema
   alias Ted.Operations
-  alias TedWeb.ApiSchemas.{CheckIn, GenericObject, Meal, Profile, Workout}
+  alias TedWeb.ApiSchemas.{CheckIn, GenericObject, Meal, Profile, Workout, WorkoutTemplate}
 
   tags ["Coaching"]
   security [%{"bearerAuth" => []}]
@@ -13,6 +13,12 @@ defmodule TedWeb.CoachingController do
   plug TedWeb.ApiAuth, [scopes: ["profile:write"]] when action == :update_profile
   plug TedWeb.ApiAuth, [scopes: ["check_ins:write"]] when action == :record_check_in
   plug TedWeb.ApiAuth, [scopes: ["workouts:write"]] when action == :log_workout
+
+  plug TedWeb.ApiAuth,
+       [scopes: ["workouts:read"]]
+       when action in [:list_workout_templates, :get_workout_template, :prepare_workout]
+
+  plug TedWeb.ApiAuth, [scopes: ["workouts:write"]] when action == :save_workout_template
   plug TedWeb.ApiAuth, [scopes: ["meals:write"]] when action == :log_meal
   plug TedWeb.ApiAuth, [scopes: ["plans:read"]] when action == :recommend_meal
   plug TedWeb.ApiAuth, [scopes: ["objectives:read"]] when action == :list_objectives
@@ -44,6 +50,31 @@ defmodule TedWeb.CoachingController do
     summary: "Log a completed workout",
     request_body: {"Completed workout", "application/json", Workout},
     responses: [created: {"Recorded workout", "application/json", Workout}]
+
+  operation :list_workout_templates,
+    operation_id: "list_workout_templates",
+    summary: "List named workout templates",
+    responses: [
+      ok: {"Workout templates", "application/json", %Schema{type: :array, items: WorkoutTemplate}}
+    ]
+
+  operation :get_workout_template,
+    operation_id: "get_workout_template",
+    summary: "Read one named workout template",
+    parameters: [id: [in: :path, type: :string, required: true]],
+    responses: [ok: {"Workout template", "application/json", WorkoutTemplate}]
+
+  operation :save_workout_template,
+    operation_id: "save_workout_template",
+    summary: "Create or refine a named workout template",
+    request_body: {"Workout template", "application/json", WorkoutTemplate},
+    responses: [ok: {"Saved workout template", "application/json", WorkoutTemplate}]
+
+  operation :prepare_workout,
+    operation_id: "prepare_workout",
+    summary: "Prepare a workout from a named template",
+    parameters: [id: [in: :path, type: :string, required: true]],
+    responses: [ok: {"Workout-ready template", "application/json", GenericObject}]
 
   operation :log_meal,
     operation_id: "log_meal",
@@ -109,6 +140,10 @@ defmodule TedWeb.CoachingController do
   def update_profile(conn, params), do: execute(conn, "update_profile", params)
   def record_check_in(conn, params), do: execute(conn, "record_check_in", params)
   def log_workout(conn, params), do: execute(conn, "log_workout", params, 201)
+  def list_workout_templates(conn, _params), do: execute(conn, "list_workout_templates", %{})
+  def get_workout_template(conn, params), do: execute(conn, "get_workout_template", params)
+  def save_workout_template(conn, params), do: execute(conn, "save_workout_template", params)
+  def prepare_workout(conn, params), do: execute(conn, "prepare_workout", params)
   def log_meal(conn, params), do: execute(conn, "log_meal", params, 201)
   def recommend_meal(conn, params), do: execute(conn, "recommend_meal", params)
   def list_objectives(conn, _params), do: execute(conn, "list_objectives", %{})

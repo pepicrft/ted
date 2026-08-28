@@ -191,6 +191,106 @@ defmodule Ted.CoachingTest do
     assert today.nutrition.guidance =~ "concrete option"
   end
 
+  test "keeps named workout templates versioned and isolated by person", %{repo: repo} do
+    first = user!(repo, "templates-first@example.test")
+    second = user!(repo, "templates-second@example.test")
+
+    attributes = workout_template_attributes()
+
+    assert {:ok, template} = Coaching.save_workout_template(first.id, attributes, repo)
+    assert template.name == "Full-body strength A"
+    assert template.version == 1
+    assert template.image_url == "/assets/workouts/full-body-strength-a.png"
+
+    assert [
+             %{
+               "name" => "Barbell squat",
+               "rest_seconds" => 150,
+               "image_url" => "/assets/exercises/barbell-squat.png",
+               "image_alt" => "Original reference illustration of a barbell back squat.",
+               "video_url" => "https://www.youtube.com/watch?v=8PMjqgR8Wa8"
+             }
+           ] = template.movements
+
+    assert {:ok, [listed]} = Coaching.list_workout_templates(first.id, repo)
+    assert listed.id == template.id
+    assert {:ok, []} = Coaching.list_workout_templates(second.id, repo)
+    assert {:error, :not_found} = Coaching.get_workout_template(second.id, template.id, repo)
+
+    assert {:ok, prepared} = Coaching.prepare_workout(first.id, template.id, repo)
+    assert prepared.template.id == template.id
+    assert prepared.workout.workout_template_id == template.id
+    assert prepared.workout.workout_template_version == 1
+    assert prepared.workout.movements == template.movements
+    assert prepared.visual_guidance =~ "recognition cue"
+
+    assert {:ok, refined} =
+             Coaching.save_workout_template(
+               first.id,
+               Map.merge(attributes, %{
+                 "id" => template.id,
+                 "name" => "Full-body strength A, refined"
+               }),
+               repo
+             )
+
+    assert refined.version == 2
+
+    assert {:ok, completed} =
+             Coaching.log_workout(
+               first.id,
+               %{
+                 "name" => refined.name,
+                 "movements" => refined.movements,
+                 "workout_template_id" => refined.id,
+                 "workout_template_version" => refined.version
+               },
+               repo
+             )
+
+    assert completed.workout_template_id == refined.id
+    assert completed.workout_template_version == 2
+
+    assert {:error, :not_found} =
+             Coaching.save_workout_template(
+               second.id,
+               Map.put(attributes, "id", refined.id),
+               repo
+             )
+
+    attributes_without_video =
+      Map.update!(attributes, "movements", fn [movement] ->
+        [Map.delete(movement, "video_url")]
+      end)
+
+    assert {:error, _changeset} =
+             Coaching.save_workout_template(first.id, attributes_without_video, repo)
+  end
+
+  defp workout_template_attributes do
+    %{
+      "name" => "Full-body strength A",
+      "description" => "A configurable, repeatable strength session.",
+      "estimated_duration_minutes" => 50,
+      "image_url" => "/assets/workouts/full-body-strength-a.png",
+      "image_alt" =>
+        "Three-panel reference illustration showing a barbell squat, a barbell bench press, and a bent-over barbell row.",
+      "movements" => [
+        %{
+          "id" => "back-squat",
+          "name" => "Barbell squat",
+          "sets" => 3,
+          "repetitions" => "5",
+          "rest_seconds" => 150,
+          "instructions" => "Use a controlled load and stop if pain increases.",
+          "image_url" => "/assets/exercises/barbell-squat.png",
+          "image_alt" => "Original reference illustration of a barbell back squat.",
+          "video_url" => "https://www.youtube.com/watch?v=8PMjqgR8Wa8"
+        }
+      ]
+    }
+  end
+
   defp user!(repo, email) do
     assert {:ok, user} = Accounts.create_user(%{"email" => email, "name" => email}, repo)
     user

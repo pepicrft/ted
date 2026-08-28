@@ -125,7 +125,7 @@ defmodule TedWeb.AuthMarkdownController do
 
     Send `Authorization: Bearer <access_token>`. The [OpenAPI](https://www.openapis.org/) document is at `#{origin}/openapi.json`, interactive documentation is at `#{origin}/docs`, and the Model Context Protocol endpoint is at `#{origin}/mcp`.
 
-    Use the operation catalog to record the person's profile, objectives, check-ins, meals, workouts, and plans. Coach only from recorded facts and explicit objectives. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measurement. Meaningful pain stops progression and should prompt qualified professional care.
+    Use the operation catalog to record the person's profile, objectives, check-ins, meals, workouts, workout templates, and plans. Workout templates retain an ordered movement configuration, visual reference, and direct video link for every movement. Treat images and linked videos as learning aids, not as a substitute for qualified instruction when learning an unfamiliar movement. Coach only from recorded facts and explicit objectives. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measurement. Meaningful pain stops progression and should prompt qualified professional care.
 
     ## 7. Errors
 
@@ -161,7 +161,7 @@ defmodule TedWeb.AuthMarkdownController do
     - `objectives:read` and `objectives:write`: read or change that person's objectives.
     - `check_ins:read` and `check_ins:write`: read or record body-weight and readiness check-ins.
     - `meals:read` and `meals:write`: read meal history, record meals, and request meal suggestions.
-    - `workouts:read` and `workouts:write`: read or record strength sessions.
+    - `workouts:read` and `workouts:write`: read or record strength sessions, and create, refine, or prepare named workout templates.
     - `plans:read` and `plans:write`: read, build, and review coaching plans.
     - `mcp`: connect to the Model Context Protocol server with a resource-bound token.
 
