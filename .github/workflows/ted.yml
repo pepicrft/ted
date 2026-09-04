@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
@@ -160,7 +160,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
       - name: Build and publish container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
