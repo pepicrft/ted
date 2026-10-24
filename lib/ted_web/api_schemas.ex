@@ -68,13 +68,124 @@ defmodule TedWeb.ApiSchemas.Workout do
         id: %OpenApiSpex.Schema{type: :string, format: :uuid},
         performed_on: %OpenApiSpex.Schema{type: :string, format: :date},
         name: %OpenApiSpex.Schema{type: :string},
+        status: %OpenApiSpex.Schema{type: :string},
         duration_minutes: %OpenApiSpex.Schema{type: :integer, nullable: true},
         perceived_exertion: %OpenApiSpex.Schema{type: :integer, nullable: true},
         movements: %OpenApiSpex.Schema{type: :array, items: %OpenApiSpex.Schema{type: :object}},
+        completed_sets: %OpenApiSpex.Schema{type: :array, items: TedWeb.ApiSchemas.WorkoutSet},
         notes: %OpenApiSpex.Schema{type: :string, nullable: true},
         workout_template_id: %OpenApiSpex.Schema{type: :string, format: :uuid, nullable: true},
-        workout_template_version: %OpenApiSpex.Schema{type: :integer, nullable: true}
+        workout_template_version: %OpenApiSpex.Schema{type: :integer, nullable: true},
+        plan_id: %OpenApiSpex.Schema{type: :string, format: :uuid, nullable: true},
+        started_at: %OpenApiSpex.Schema{type: :string, format: :date_time, nullable: true},
+        completed_at: %OpenApiSpex.Schema{type: :string, format: :date_time, nullable: true},
+        updated_at: %OpenApiSpex.Schema{type: :string, format: :date_time},
+        progress: %OpenApiSpex.Schema{
+          type: :object,
+          properties: %{
+            total_sets: %OpenApiSpex.Schema{type: :integer, minimum: 0},
+            completed_sets: %OpenApiSpex.Schema{type: :integer, minimum: 0},
+            remaining_sets: %OpenApiSpex.Schema{type: :integer, minimum: 0},
+            next_set: %OpenApiSpex.Schema{
+              type: :object,
+              nullable: true,
+              properties: %{
+                movement: TedWeb.ApiSchemas.WorkoutTemplateMovement,
+                set_number: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 10}
+              },
+              required: [:movement, :set_number]
+            },
+            safety_hold: %OpenApiSpex.Schema{type: :boolean}
+          },
+          required: [:total_sets, :completed_sets, :remaining_sets, :next_set, :safety_hold]
+        }
       }
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.StartWorkout do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Start workout",
+      type: :object,
+      properties: %{performed_on: %OpenApiSpex.Schema{type: :string, format: :date}},
+      additionalProperties: false
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.WorkoutSet do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Workout set",
+      type: :object,
+      properties: %{
+        movement_id: %OpenApiSpex.Schema{type: :string},
+        set_number: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 10},
+        repetitions: %OpenApiSpex.Schema{type: :integer, minimum: 0, maximum: 1_000},
+        load_kg: %OpenApiSpex.Schema{type: :number, minimum: 0, maximum: 1_000},
+        perceived_exertion: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 10},
+        pain: %OpenApiSpex.Schema{type: :integer, minimum: 0, maximum: 10},
+        notes: %OpenApiSpex.Schema{type: :string}
+      },
+      required: [:movement_id, :set_number, :repetitions],
+      additionalProperties: false
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.FinishWorkout do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Finish workout",
+      type: :object,
+      properties: %{
+        status: %OpenApiSpex.Schema{type: :string, enum: ["completed", "cancelled"]},
+        duration_minutes: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 480},
+        perceived_exertion: %OpenApiSpex.Schema{type: :integer, minimum: 1, maximum: 10},
+        notes: %OpenApiSpex.Schema{type: :string}
+      },
+      required: [:status],
+      additionalProperties: false
+    },
+    derive?: false
+  )
+end
+
+defmodule TedWeb.ApiSchemas.BuildPlan do
+  @moduledoc false
+  require OpenApiSpex
+
+  OpenApiSpex.schema(
+    %{
+      title: "Build plan",
+      description:
+        "Snapshots the selected templates in the supplied order. Omitting workout_template_ids preserves active plan assignments or leaves the plan unconfigured.",
+      type: :object,
+      properties: %{
+        date: %OpenApiSpex.Schema{type: :string, format: :date},
+        workout_template_ids: %OpenApiSpex.Schema{
+          type: :array,
+          minItems: 1,
+          maxItems: 14,
+          uniqueItems: true,
+          items: %OpenApiSpex.Schema{type: :string, format: :uuid}
+        }
+      },
+      additionalProperties: false
     },
     derive?: false
   )

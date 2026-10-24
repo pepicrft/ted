@@ -65,6 +65,59 @@ defmodule Ted.Coaching do
     end
   end
 
+  @spec get_current_workout(Ecto.UUID.t(), module()) :: {:ok, map()} | {:error, :not_found}
+  def get_current_workout(user_id, repo \\ Repo) do
+    case current_workout_record(user_id, repo) do
+      nil -> {:error, :not_found}
+      workout -> {:ok, workout_map(workout, pain_hold?(user_id, repo))}
+    end
+  end
+
+  @spec get_workout(Ecto.UUID.t(), Ecto.UUID.t(), module()) :: {:ok, map()} | {:error, term()}
+  def get_workout(user_id, id, repo \\ Repo) do
+    case Ecto.UUID.cast(id) do
+      {:ok, id} ->
+        case repo.get_by(Workout, id: id, user_id: user_id) do
+          nil ->
+            {:error, :not_found}
+
+          workout ->
+            {:ok,
+             workout_map(workout, workout.status == "in_progress" and pain_hold?(user_id, repo))}
+        end
+
+      :error ->
+        {:error, :invalid_arguments}
+    end
+  end
+
+  @spec start_workout(Ecto.UUID.t(), map(), module()) :: {:ok, map()} | {:error, term()}
+  def start_workout(user_id, attrs \\ %{}, repo \\ Repo) do
+    with {:ok, date} <- date_value(Map.get(attrs, "performed_on"), Date.utc_today()) do
+      repo.transaction(fn -> start_or_resume_workout(user_id, date, repo) end)
+    end
+  end
+
+  @spec record_workout_set(Ecto.UUID.t(), map(), module()) :: {:ok, map()} | {:error, term()}
+  def record_workout_set(user_id, attrs, repo \\ Repo) do
+    with_locked_workout(
+      user_id,
+      attrs["id"],
+      repo,
+      &Workout.record_set_changeset(&1, attrs, pain_hold?(user_id, repo))
+    )
+  end
+
+  @spec finish_workout(Ecto.UUID.t(), map(), module()) :: {:ok, map()} | {:error, term()}
+  def finish_workout(user_id, attrs, repo \\ Repo) do
+    with_locked_workout(
+      user_id,
+      attrs["id"],
+      repo,
+      &Workout.finish_changeset(&1, attrs, pain_hold?(user_id, repo))
+    )
+  end
+
   @spec list_workout_templates(Ecto.UUID.t(), module()) :: {:ok, [map()]}
   def list_workout_templates(user_id, repo \\ Repo) do
     templates =
@@ -219,8 +272,9 @@ defmodule Ted.Coaching do
     end
   end
 
-  @spec build_plan(Ecto.UUID.t(), Date.t(), module()) :: {:ok, map()} | {:error, term()}
-  def build_plan(user_id, date \\ Date.utc_today(), repo \\ Repo) do
+  @spec build_plan(Ecto.UUID.t(), Date.t(), module(), [Ecto.UUID.t()] | nil) ::
+          {:ok, map()} | {:error, term()}
+  def build_plan(user_id, date \\ Date.utc_today(), repo \\ Repo, template_ids \\ nil) do
     profile = repo.get_by(Profile, user_id: user_id) || %Profile{user_id: user_id}
     objectives = active_objective_records(user_id, repo)
     latest_weight = latest_weight(user_id, repo)
@@ -228,10 +282,13 @@ defmodule Ted.Coaching do
     attributes = PlanBuilder.build(profile, objectives, latest_weight, next_version, date)
 
     repo.transaction(fn ->
-      supersede_active_plans(user_id, repo)
-
-      case repo.insert(Plan.changeset(%Plan{}, attributes)) do
-        {:ok, plan} -> plan_map(plan)
+      with {:ok, templates} <- plan_workout_templates(user_id, template_ids, repo),
+           attributes <-
+             put_in(attributes, [:strategy, "training", "workout_templates"], templates),
+           _superseded <- supersede_active_plans(user_id, repo),
+           {:ok, plan} <- repo.insert(Plan.changeset(%Plan{}, attributes)) do
+        plan_map(plan)
+      else
         {:error, reason} -> repo.rollback(reason)
       end
     end)
@@ -264,7 +321,7 @@ defmodule Ted.Coaching do
         from(workout in Workout,
           where:
             workout.user_id == ^user_id and workout.performed_on >= ^start_date and
-              workout.performed_on <= ^date,
+              workout.performed_on <= ^date and workout.status == "completed",
           order_by: [desc: workout.performed_on, desc: workout.inserted_at]
         )
       )
@@ -289,6 +346,9 @@ defmodule Ted.Coaching do
           PlanBuilder.build(profile, objectives, latest_weight(user_id, repo), 1, date)
         )
 
+    current_workout = current_workout_record(user_id, repo)
+    pain_signal = pain_hold?(user_id, repo, date)
+
     {:ok,
      Planner.build(%{
        date: date,
@@ -297,7 +357,10 @@ defmodule Ted.Coaching do
        workouts: workouts,
        meals: meals,
        plan: plan_context,
-       objectives: objectives
+       objectives: objectives,
+       current_workout: current_workout && workout_map(current_workout, pain_signal),
+       pain_signal: pain_signal,
+       last_workout: last_completed_template_workout(user_id, date, plan_context, repo)
      })}
   end
 
@@ -331,13 +394,150 @@ defmodule Ted.Coaching do
        workouts: Enum.map(workouts, &workout_map/1),
        summary: %{
          check_in_days: length(check_ins),
-         workouts_completed: length(workouts),
+         workouts_completed: Enum.count(workouts, &(&1.status == "completed")),
+         workouts_in_progress: Enum.count(workouts, &(&1.status == "in_progress")),
          weight_change_kg: weight_change(check_ins)
        }
      }}
   end
 
   def progress(_user_id, _days, _repo), do: {:error, :invalid_arguments}
+
+  defp start_or_resume_workout(user_id, date, repo) do
+    repo.one(from(user in Ted.Accounts.User, where: user.id == ^user_id, lock: "FOR UPDATE"))
+
+    case get_current_workout(user_id, repo) do
+      {:ok, workout} -> workout
+      {:error, :not_found} -> insert_started_workout(user_id, date, repo)
+    end
+  end
+
+  defp insert_started_workout(user_id, date, repo) do
+    {:ok, today} = today_plan(user_id, date, repo)
+
+    case today.training do
+      %{kind: "strength", template: template} ->
+        %Workout{
+          status: "in_progress",
+          started_at: DateTime.utc_now(),
+          plan_id: today.active_plan.id
+        }
+        |> Workout.changeset(%{
+          "user_id" => user_id,
+          "performed_on" => date,
+          "name" => template["name"],
+          "movements" => template["movements"],
+          "workout_template_id" => template["id"],
+          "workout_template_version" => template["version"]
+        })
+        |> repo.insert()
+        |> case do
+          {:ok, workout} -> workout_map(workout, pain_hold?(user_id, repo))
+          {:error, reason} -> repo.rollback(reason)
+        end
+
+      %{kind: "safety_hold"} ->
+        repo.rollback(:safety_hold)
+
+      _training ->
+        repo.rollback(:workout_not_ready)
+    end
+  end
+
+  defp with_locked_workout(user_id, id, repo, callback) do
+    case Ecto.UUID.cast(id) do
+      {:ok, id} -> repo.transaction(fn -> update_locked_workout(user_id, id, repo, callback) end)
+      :error -> {:error, :invalid_arguments}
+    end
+  end
+
+  defp update_locked_workout(user_id, id, repo, callback) do
+    query =
+      from(workout in Workout,
+        where: workout.id == ^id and workout.user_id == ^user_id,
+        lock: "FOR UPDATE"
+      )
+
+    with %Workout{} = workout <- repo.one(query),
+         {:ok, changeset} <- callback.(workout),
+         {:ok, updated} <- repo.update(changeset) do
+      workout_map(updated, updated.status == "in_progress" and pain_hold?(user_id, repo))
+    else
+      nil -> repo.rollback(:not_found)
+      {:error, reason} -> repo.rollback(reason)
+    end
+  end
+
+  defp pain_hold?(user_id, repo, date \\ Date.utc_today()) do
+    check_in = repo.get_by(CheckIn, user_id: user_id, date: date)
+
+    sets =
+      repo.all(
+        from(workout in Workout,
+          where: workout.user_id == ^user_id and workout.performed_on == ^date,
+          select: workout.completed_sets
+        )
+      )
+
+    (check_in && is_integer(check_in.pain) && check_in.pain >= 4) == true or
+      Enum.any?(sets, fn sets -> Enum.any?(sets, &((&1["pain"] || 0) >= 4)) end)
+  end
+
+  defp current_workout_record(user_id, repo),
+    do: repo.get_by(Workout, user_id: user_id, status: "in_progress")
+
+  defp last_completed_template_workout(user_id, date, plan, repo) do
+    ids = Enum.map(get_in(plan.strategy, ["training", "workout_templates"]) || [], & &1["id"])
+
+    repo.one(
+      from(workout in Workout,
+        where:
+          workout.user_id == ^user_id and workout.status == "completed" and
+            workout.performed_on <= ^date and workout.workout_template_id in ^ids,
+        order_by: [desc: workout.performed_on, desc: workout.inserted_at],
+        limit: 1
+      )
+    )
+  end
+
+  defp plan_workout_templates(user_id, nil, repo) do
+    plan = active_plan_record(user_id, repo)
+    {:ok, (plan && get_in(plan.strategy, ["training", "workout_templates"])) || []}
+  end
+
+  defp plan_workout_templates(user_id, ids, repo) when is_list(ids) and length(ids) in 1..14 do
+    with {:ok, ids} <- Ecto.Type.cast({:array, Ecto.UUID}, ids),
+         true <- Enum.uniq(ids) == ids,
+         templates <-
+           repo.all(
+             from(template in WorkoutTemplate,
+               where: template.user_id == ^user_id and template.id in ^ids
+             )
+           ),
+         true <- length(templates) == length(ids) do
+      by_id = Map.new(templates, &{&1.id, &1})
+      {:ok, Enum.map(ids, &workout_template_snapshot(by_id[&1]))}
+    else
+      :error -> {:error, :invalid_arguments}
+      false -> {:error, :not_found}
+    end
+  end
+
+  defp plan_workout_templates(_user_id, _ids, _repo), do: {:error, :invalid_arguments}
+
+  defp workout_template_snapshot(template) do
+    template
+    |> Map.take([
+      :id,
+      :name,
+      :version,
+      :estimated_duration_minutes,
+      :movements,
+      :image_url,
+      :image_alt
+    ])
+    |> Map.new(fn {key, value} -> {Atom.to_string(key), value} end)
+  end
 
   defp persist_review(user_id, plan, evaluation, date, repo) do
     repo.transaction(fn ->
@@ -579,7 +779,10 @@ defmodule Ted.Coaching do
     }
   end
 
-  defp workout_map(workout) do
+  defp workout_map(workout, safety_hold \\ false) do
+    progress = Workout.progress(workout)
+    progress = if safety_hold, do: %{progress | safety_hold: true, next_set: nil}, else: progress
+
     %{
       id: workout.id,
       performed_on: workout.performed_on,
@@ -590,7 +793,14 @@ defmodule Ted.Coaching do
       notes: workout.notes,
       workout_template_id: workout.workout_template_id,
       workout_template_version: workout.workout_template_version,
-      created_at: workout.inserted_at
+      plan_id: workout.plan_id,
+      status: workout.status,
+      completed_sets: workout.completed_sets,
+      started_at: workout.started_at,
+      completed_at: workout.completed_at,
+      progress: progress,
+      created_at: workout.inserted_at,
+      updated_at: workout.updated_at
     }
   end
 

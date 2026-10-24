@@ -71,6 +71,9 @@ Implementation:
 - Default work sets end with about two repetitions still possible.
 - Daily energy, sleep, soreness, pain, and recent completed sessions can reduce the session without rewriting the whole plan.
 - Meaningful pain is not treated as ordinary soreness and places training progression on hold.
+- Training plans snapshot an explicitly selected, ordered sequence of workout templates. Daily recommendations follow that sequence across review windows and breaks; missing assignments require configuration rather than invented exercises. Editing a template does not silently rewrite an existing plan or session.
+- A reviewed volume multiplier scales the assigned movement's prescribed set count, rounded to a whole set and bounded by the template's supported range of one to ten sets. Exercise selection and order stay unchanged. A session keeps the prescription with which it started.
+- A reported pain score of four or more in a check-in or recorded workout set stops further sets and completion. The partial session can be cancelled without deleting its observations. Cancelling does not erase the day's safety hold, and plan reviews include pain from unfinished and cancelled sessions.
 
 ## Tracking and coaching feedback
 
@@ -83,6 +86,7 @@ An adaptive intervention trial found that adding wireless feedback and later hum
 Implementation:
 
 - Ted keeps logging brief and useful, then summarizes the trend at a review boundary.
+- Live sessions persist each actual set separately from the prescribed movements and return completed sets, remaining sets, and the next prescribed set. Repeating a set identifier updates the observation without counting it twice. Only explicitly completed sessions count toward training frequency and review adherence; cancelled and unfinished sessions remain readable.
 - A review requires at least seven check-ins by default.
 - Low adherence leads to simplifying the current plan, not immediately making the prescription more aggressive.
 - Ted records `needs_data`, `no_change`, `adjusted`, or `safety_hold` with low, moderate, or high confidence.

@@ -22,6 +22,16 @@ defmodule TedWeb.ApiResponse do
 
   def send_result(conn, {:error, reason}, _success_status)
       when reason in [
+             :workout_not_ready,
+             :workout_not_in_progress,
+             :workout_incomplete,
+             :safety_hold
+           ] do
+    conn |> put_status(409) |> json(%{error: to_string(reason)})
+  end
+
+  def send_result(conn, {:error, reason}, _success_status)
+      when reason in [
              :invalid_arguments,
              :invalid_request
            ] do

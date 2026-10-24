@@ -123,6 +123,11 @@ defmodule TedWeb.InterfacesTest do
     assert "save_workout_template" in names
     assert "prepare_workout" in names
 
+    for name <-
+          ~w(start_workout get_current_workout get_workout record_workout_set finish_workout) do
+      assert name in names
+    end
+
     called =
       DataCase.endpoint_conn(
         :post,
@@ -250,7 +255,173 @@ defmodule TedWeb.InterfacesTest do
            ] = prepared_workout["movements"]
   end
 
-  defp agent_access_token(repo) do
+  test "persists live workouts across both interfaces and isolates seeded people", %{repo: repo} do
+    Code.eval_file(Path.expand("../../priv/repo/seeds.exs", __DIR__))
+    origin = TedWeb.Endpoint.url()
+    owner_token = agent_access_token(repo, "owner@ted.local")
+    owner_web_token = agent_access_token(repo, "owner@ted.local", origin)
+    alex_token = agent_access_token(repo, "alex@ted.local")
+    alex_web_token = agent_access_token(repo, "alex@ted.local", origin)
+
+    owner_today = tool_result(owner_token, "get_today_plan")
+    alex_today = tool_result(alex_token, "get_today_plan")
+    assert owner_today["training"]["title"] == "Full-body strength A"
+    assert alex_today["training"]["title"] == "Foundational full-body"
+    assert tool_result(owner_token, "get_profile")["equipment"] == ["barbell", "rack", "bench"]
+    assert tool_result(alex_token, "get_profile")["equipment"] == []
+
+    refute tool_result(owner_token, "list_objectives") ==
+             tool_result(alex_token, "list_objectives")
+
+    templates = tool_result(owner_token, "list_workout_templates")
+    selected = Enum.find(templates, &(&1["name"] == "Full-body strength B"))
+
+    built =
+      DataCase.endpoint_conn(
+        :post,
+        "/api/plan",
+        %{"workout_template_ids" => [selected["id"]]},
+        owner_web_token
+      )
+
+    assert built.status == 201
+
+    assert JSON.decode!(built.resp_body)["strategy"]["training"]["workout_templates"]
+           |> hd()
+           |> Map.fetch!("id") == selected["id"]
+
+    started = tool_result(owner_token, "start_workout")
+    id = started["id"]
+    assert started["name"] == "Full-body strength B"
+    assert started["progress"]["completed_sets"] == 0
+    assert started["progress"]["remaining_sets"] == 9
+    assert tool_result(owner_token, "start_workout")["id"] == id
+    assert tool_result(owner_token, "get_workout", %{"id" => id})["id"] == id
+    assert tool_result(owner_token, "get_today_plan")["current_workout"]["id"] == id
+
+    for {method, path, body} <- [
+          {:get, "/api/workouts/#{id}", nil},
+          {:put, "/api/workouts/#{id}/sets",
+           %{"movement_id" => "deadlift", "set_number" => 1, "repetitions" => 5}},
+          {:post, "/api/workouts/#{id}/finish", %{"status" => "cancelled"}}
+        ] do
+      denied = DataCase.endpoint_conn(method, path, body, alex_web_token)
+      assert denied.status == 404
+    end
+
+    denied_tool = mcp_call(alex_token, "get_workout", %{"id" => id})
+    assert denied_tool["isError"]
+    assert [%{"text" => "not_found"}] = denied_tool["content"]
+
+    set = %{"movement_id" => "deadlift", "set_number" => 1, "repetitions" => 5, "load_kg" => 87.5}
+    recorded = DataCase.endpoint_conn(:put, "/api/workouts/#{id}/sets", set, owner_web_token)
+    assert recorded.status == 200
+    assert JSON.decode!(recorded.resp_body)["progress"]["remaining_sets"] == 8
+    persisted = tool_result(owner_token, "get_current_workout")
+    assert [%{"repetitions" => 5, "load_kg" => 87.5}] = persisted["completed_sets"]
+    assert persisted["progress"]["next_set"]["movement"]["id"] == "deadlift"
+    assert persisted["progress"]["next_set"]["set_number"] == 2
+    retried = tool_result(owner_token, "record_workout_set", Map.put(set, "id", id))
+    assert retried["progress"]["completed_sets"] == 1
+
+    invalid_set = set |> Map.put("id", id) |> Map.put("repetitions", -1)
+    rejected = mcp_call(owner_token, "record_workout_set", invalid_set)
+    assert rejected["isError"]
+    assert [%{"text" => "invalid_arguments"}] = rejected["content"]
+
+    incomplete =
+      DataCase.endpoint_conn(
+        :post,
+        "/api/workouts/#{id}/finish",
+        %{"status" => "completed"},
+        owner_web_token
+      )
+
+    assert incomplete.status == 409
+    assert JSON.decode!(incomplete.resp_body)["error"] == "workout_incomplete"
+
+    for movement <- ["deadlift", "overhead-press", "split-squat"], number <- 1..3 do
+      tool_result(owner_token, "record_workout_set", %{
+        "id" => id,
+        "movement_id" => movement,
+        "set_number" => number,
+        "repetitions" => 5
+      })
+    end
+
+    finished = tool_result(owner_token, "finish_workout", %{"id" => id, "status" => "completed"})
+    assert finished["status"] == "completed"
+    assert finished["progress"]["remaining_sets"] == 0
+    assert finished["movements"] == started["movements"]
+
+    assert DataCase.endpoint_conn(:get, "/api/workouts/current", nil, owner_web_token).status ==
+             404
+
+    assert tool_result(alex_token, "get_progress")["workouts"] == []
+    assert tool_result(owner_token, "get_progress")["summary"]["workouts_completed"] == 2
+
+    alex_started = DataCase.endpoint_conn(:post, "/api/workouts/start", %{}, alex_web_token)
+    assert alex_started.status == 200
+    alex_id = JSON.decode!(alex_started.resp_body)["id"]
+    assert tool_result(alex_token, "get_current_workout")["id"] == alex_id
+
+    cancelled =
+      DataCase.endpoint_conn(
+        :post,
+        "/api/workouts/#{alex_id}/finish",
+        %{"status" => "cancelled"},
+        alex_web_token
+      )
+
+    assert cancelled.status == 200
+    assert tool_result(alex_token, "get_workout", %{"id" => alex_id})["status"] == "cancelled"
+
+    paths =
+      DataCase.endpoint_conn(:get, "/openapi.json", nil).resp_body
+      |> JSON.decode!()
+      |> Map.fetch!("paths")
+
+    for {path, method, name} <- [
+          {"/api/workouts/start", "post", "start_workout"},
+          {"/api/workouts/current", "get", "get_current_workout"},
+          {"/api/workouts/{id}", "get", "get_workout"},
+          {"/api/workouts/{id}/sets", "put", "record_workout_set"},
+          {"/api/workouts/{id}/finish", "post", "finish_workout"}
+        ] do
+      assert paths[path][method]["operationId"] == name
+      assert {:ok, _operation} = Ted.Operations.fetch(name)
+    end
+  end
+
+  defp mcp_call(token, name, arguments) do
+    conn =
+      DataCase.endpoint_conn(
+        :post,
+        "/mcp",
+        %{
+          "jsonrpc" => "2.0",
+          "id" => 1,
+          "method" => "tools/call",
+          "params" => %{"name" => name, "arguments" => arguments}
+        },
+        token
+      )
+
+    assert conn.status == 200
+    JSON.decode!(conn.resp_body)["result"]
+  end
+
+  defp tool_result(token, name, arguments \\ %{}) do
+    result = mcp_call(token, name, arguments)
+    refute result["isError"], inspect(result)
+    result["structuredContent"]["result"]
+  end
+
+  defp agent_access_token(
+         repo,
+         email \\ "owner@example.test",
+         resource \\ TedWeb.Endpoint.url() <> "/mcp"
+       ) do
     issuer = TedWeb.Endpoint.url()
 
     opts = [
@@ -261,9 +432,9 @@ defmodule TedWeb.InterfacesTest do
     ]
 
     assert {:ok, registration} =
-             Ted.AgentAuth.create_service_registration("owner@example.test", opts)
+             Ted.AgentAuth.create_service_registration(email, opts)
 
-    assert {:ok, user} = Ted.Accounts.get_user_by_email("owner@example.test", repo)
+    assert {:ok, user} = Ted.Accounts.get_user_by_email(email, repo)
 
     assert {:ok, _claim} =
              Ted.AgentAuth.confirm_claim(
@@ -278,7 +449,7 @@ defmodule TedWeb.InterfacesTest do
     assert {:ok, token} =
              Ted.AgentAuth.exchange_assertion(
                claimed.identity_assertion,
-               issuer <> "/mcp",
+               resource,
                opts
              )
 

@@ -46,7 +46,7 @@ defmodule Ted.MCP do
       capabilities: %{tools: %{listChanged: false}},
       serverInfo: %{name: "ted", title: "Ted coaching", version: "0.1.0"},
       instructions:
-        "Coach from the person's recorded profile and check-ins. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measured fact. Encourage professional care when pain, disordered eating, or another health risk is mentioned."
+        "Coach from the person's recorded profile and check-ins. Call get_today_plan first and follow the assigned ordered movements without inventing or substituting them. If it reports needs_configuration, call list_workout_templates and ask the person which ordered workout_template_ids sequence to pass to build_plan; build_plan snapshots those templates, and omission preserves active plan assignments or leaves the plan unconfigured. Resume sessions with get_current_workout; if none exists, call start_workout once. Record each set immediately with record_workout_set, follow the returned progress and next_set, and call finish_workout only at the end. Never use log_workout to save live progress; it is only for already completed legacy sessions. Meaningful pain or a safety_hold stops progression. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measured fact. Encourage professional care when pain, disordered eating, or another health risk is mentioned."
     })
   end
 
@@ -113,6 +113,7 @@ defmodule Ted.MCP do
   end
 
   defp error_text(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp error_text(%Ecto.Changeset{}), do: "invalid_arguments"
   defp error_text(_reason), do: "operation_failed"
 
   defp result(conn, id, value), do: respond(conn, %{jsonrpc: "2.0", id: id, result: value})

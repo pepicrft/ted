@@ -5,7 +5,7 @@ defmodule Ted.Coaching.Planner do
 
   @spec build(map()) :: map()
   def build(%{date: date, profile: profile, check_in: check_in} = facts) do
-    readiness = readiness(check_in)
+    readiness = if facts.pain_signal, do: readiness(%{pain: 4}), else: readiness(check_in)
     training = training_plan(readiness, facts)
     meal_recommendation = MealRecommender.build(facts)
     nutrition = nutrition_plan(profile, facts.meals, facts.plan, meal_recommendation)
@@ -16,6 +16,7 @@ defmodule Ted.Coaching.Planner do
       message: message(readiness, training, nutrition),
       priorities: priorities(readiness, nutrition),
       training: training,
+      current_workout: facts.current_workout,
       nutrition: nutrition,
       objectives: Enum.map(facts.objectives, &objective_summary/1),
       active_plan: plan_summary(facts.plan),
@@ -33,7 +34,7 @@ defmodule Ted.Coaching.Planner do
     %{
       score: 0,
       label: "safety_hold",
-      reason: "Today's check-in includes a meaningful pain signal."
+      reason: "Recorded check-ins or workout sets include a meaningful pain signal."
     }
   end
 
@@ -53,6 +54,32 @@ defmodule Ted.Coaching.Planner do
     %{score: score, label: label, reason: "Based on energy, soreness, and sleep."}
   end
 
+  defp training_plan(%{label: "safety_hold"}, _facts) do
+    %{
+      kind: "safety_hold",
+      title: "Pause loaded training",
+      duration_minutes: 0,
+      instructions: [
+        "Do not train through meaningful, worsening, or unexplained pain.",
+        "Ask a qualified health professional for an assessment before progressing the plan."
+      ]
+    }
+  end
+
+  defp training_plan(_readiness, %{current_workout: %{progress: %{safety_hold: true}}}),
+    do: training_plan(%{label: "safety_hold"}, %{})
+
+  defp training_plan(_readiness, %{current_workout: workout}) when not is_nil(workout) do
+    %{
+      kind: "in_progress",
+      title: workout.name,
+      workout_id: workout.id,
+      movements: workout.movements,
+      progress: workout.progress,
+      instructions: ["Resume this workout. Record each completed set before continuing."]
+    }
+  end
+
   defp training_plan(%{label: "recover"}, _facts) do
     %{
       kind: "recovery",
@@ -66,75 +93,59 @@ defmodule Ted.Coaching.Planner do
     }
   end
 
-  defp training_plan(%{label: "safety_hold"}, _facts) do
-    %{
-      kind: "safety_hold",
-      title: "Pause loaded training",
-      duration_minutes: 0,
-      instructions: [
-        "Do not train through meaningful, worsening, or unexplained pain.",
-        "Ask a qualified health professional for an assessment before progressing the plan."
-      ]
-    }
-  end
-
-  defp training_plan(_readiness, %{profile: profile, workouts: workouts, plan: plan}) do
+  defp training_plan(_readiness, %{profile: profile, workouts: workouts, plan: plan} = facts) do
     target =
       get_in(plan.strategy, ["training", "days_per_week"]) || profile.training_days_per_week
 
-    volume_multiplier = get_in(plan.strategy, ["training", "volume_multiplier"]) || 1.0
+    templates = get_in(plan.strategy, ["training", "workout_templates"]) || []
 
-    if length(workouts) >= target do
-      %{
-        kind: "recovery",
-        title: "Easy movement",
-        duration_minutes: 30,
-        instructions: ["Take an easy walk and arrive fresh for the next strength session."]
-      }
-    else
-      session = if rem(length(workouts), 2) == 0, do: "A", else: "B"
+    cond do
+      length(workouts) >= target ->
+        %{
+          kind: "recovery",
+          title: "Easy movement",
+          duration_minutes: 30,
+          instructions: ["Take an easy walk and arrive fresh for the next strength session."]
+        }
 
-      %{
-        kind: "strength",
-        title: "Full-body strength #{session}",
-        duration_minutes: profile.session_minutes,
-        instructions: strength_instructions(session, profile.equipment, volume_multiplier),
-        volume_multiplier: volume_multiplier,
-        effort_guidance: "Finish most working sets with about two repetitions still possible."
-      }
+      templates == [] ->
+        %{
+          kind: "needs_configuration",
+          title: "Choose the workouts for your plan",
+          instructions: [
+            "Use list_workout_templates and agree on an ordered sequence with the person.",
+            "Pass those workout_template_ids to build_plan. Do not invent or substitute exercises."
+          ]
+        }
+
+      true ->
+        multiplier = get_in(plan.strategy, ["training", "volume_multiplier"]) || 1.0
+        template = next_template(templates, facts.last_workout)
+
+        movements =
+          Enum.map(template["movements"], fn movement ->
+            Map.update!(movement, "sets", &(round(&1 * multiplier) |> max(1) |> min(10)))
+          end)
+
+        %{
+          kind: "strength",
+          title: template["name"],
+          duration_minutes: template["estimated_duration_minutes"] || profile.session_minutes,
+          template: Map.put(template, "movements", movements),
+          movements: movements,
+          instructions:
+            Enum.map(movements, &"#{&1["name"]}: #{&1["sets"]} sets of #{&1["repetitions"]}"),
+          volume_multiplier: multiplier,
+          effort_guidance: "Finish most working sets with about two repetitions still possible."
+        }
     end
   end
 
-  defp strength_instructions("A", equipment, multiplier) do
-    sets = adjusted_sets(multiplier)
+  defp next_template(templates, last_workout) do
+    index =
+      last_workout && Enum.find_index(templates, &(&1["id"] == last_workout.workout_template_id))
 
-    if "barbell" in equipment do
-      ["Squat: #{sets} sets of 5", "Bench press: #{sets} sets of 5", "Row: #{sets} sets of 8"]
-    else
-      [
-        "Goblet squat: #{sets} sets of 8",
-        "Push-up: #{sets} comfortable sets",
-        "Row: #{sets} sets of 10"
-      ]
-    end
-  end
-
-  defp strength_instructions("B", equipment, multiplier) do
-    sets = adjusted_sets(multiplier)
-
-    if "barbell" in equipment do
-      [
-        "Deadlift: #{sets} sets of 5",
-        "Overhead press: #{sets} sets of 5",
-        "Split squat: #{sets} sets of 8"
-      ]
-    else
-      [
-        "Hip hinge: #{sets} sets of 10",
-        "Pike push-up: #{sets} comfortable sets",
-        "Split squat: #{sets} sets of 8"
-      ]
-    end
+    Enum.at(templates, if(is_nil(index), do: 0, else: rem(index + 1, length(templates))))
   end
 
   defp nutrition_plan(profile, meals, plan, meal_recommendation) do
@@ -179,8 +190,6 @@ defmodule Ted.Coaching.Planner do
   defp decimal_to_float(nil), do: nil
   defp decimal_to_float(%Decimal{} = decimal), do: Decimal.to_float(decimal)
   defp decimal_to_float(value) when is_number(value), do: value / 1
-
-  defp adjusted_sets(multiplier), do: multiplier |> Kernel.*(3) |> round() |> max(2) |> min(4)
 
   defp plan_value(nil, _path, fallback), do: fallback
   defp plan_value(plan, path, fallback), do: get_in(plan.strategy, path) || fallback

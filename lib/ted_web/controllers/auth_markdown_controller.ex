@@ -127,6 +127,16 @@ defmodule TedWeb.AuthMarkdownController do
 
     Use the operation catalog to record the person's profile, objectives, check-ins, meals, workouts, workout templates, and plans. Workout templates retain an ordered movement configuration, visual reference, and direct video link for every movement. Treat images and linked videos as learning aids, not as a substitute for qualified instruction when learning an unfamiliar movement. Coach only from recorded facts and explicit objectives. Do not diagnose illness, prescribe treatment, recommend extreme restriction, or present an estimate as a measurement. Meaningful pain stops progression and should prompt qualified professional care.
 
+    ### Live workout workflow
+
+    1. Call `get_today_plan` first (`GET /api/today`). Follow the assigned template's ordered prescribed movements exactly. Do not invent or substitute movements.
+    2. If the plan reports `needs_configuration`, call `list_workout_templates` (`GET /api/workout-templates`) and ask the person which ordered template sequence they want. Pass that sequence as `workout_template_ids` to `build_plan` (`POST /api/plan`) in the [JavaScript Object Notation](https://www.json.org/) body, with an optional `date`. The plan snapshots those selected templates in order. Omitting `workout_template_ids` preserves active plan assignments or leaves the plan unconfigured; do not silently choose a sequence. The query `date` remains supported for existing clients.
+    3. Call `get_current_workout` (`GET /api/workouts/current`) to resume an active session. If it returns `not_found`, call `start_workout` (`POST /api/workouts/start`) once, with an optional `performed_on` date. Starting resumes an existing active session or starts the next assigned template; arbitrary movements are not accepted.
+    4. Record each set immediately with `record_workout_set` (`PUT /api/workouts/:id/sets`). Supply the workout `id`, prescribed `movement_id`, `set_number`, and actual `repetitions`, with optional `load_kg`, `perceived_exertion`, `pain`, and `notes`. The same movement and set number replace that actual entry idempotently. Keep the prescribed `movements` separate from actual `completed_sets`, and follow `progress.next_set`. Read a specific session with `get_workout` (`GET /api/workouts/:id`).
+    5. Meaningful pain or `progress.safety_hold` stops progression. Do not advance through a safety hold. Call `finish_workout` (`POST /api/workouts/:id/finish`) only at the end, with `status` set to `completed` or `cancelled` and optional `duration_minutes`, `perceived_exertion`, and `notes`. Incomplete completion is rejected; repeating the same terminal state is idempotent.
+
+    Never use `log_workout` (`POST /api/workouts`) to save live progress. It is the legacy operation for sessions that are already completed. Workout reads require `workouts:read`; starting, recording sets, and finishing require `workouts:write`. For paths containing `:id`, the workout identifier is supplied in the path; Model Context Protocol calls supply it as the `id` argument.
+
     ## 7. Errors
 
     | Endpoint | Error | Agent action |
@@ -161,7 +171,7 @@ defmodule TedWeb.AuthMarkdownController do
     - `objectives:read` and `objectives:write`: read or change that person's objectives.
     - `check_ins:read` and `check_ins:write`: read or record body-weight and readiness check-ins.
     - `meals:read` and `meals:write`: read meal history, record meals, and request meal suggestions.
-    - `workouts:read` and `workouts:write`: read or record strength sessions, and create, refine, or prepare named workout templates.
+    - `workouts:read` and `workouts:write`: read or resume strength sessions, record each set and finish sessions, and create, refine, or prepare named workout templates.
     - `plans:read` and `plans:write`: read, build, and review coaching plans.
     - `mcp`: connect to the Model Context Protocol server with a resource-bound token.
 

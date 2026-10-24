@@ -438,7 +438,13 @@ unless Repo.exists?(
 end
 
 unless Repo.exists?(from(plan in Plan, where: plan.user_id == ^local_id)) do
-  {:ok, _plan} = Coaching.build_plan(local_id, today)
+  template_ids =
+    for name <- ["Full-body strength A", "Full-body strength B"] do
+      %WorkoutTemplate{id: id} = Repo.get_by(WorkoutTemplate, user_id: local_id, name: name)
+      id
+    end
+
+  {:ok, _plan} = Coaching.build_plan(local_id, today, Repo, template_ids)
 end
 
 Repo.insert!(
@@ -588,7 +594,13 @@ unless Repo.exists?(
 end
 
 unless Repo.exists?(from(plan in Plan, where: plan.user_id == ^alex_id)) do
-  {:ok, _plan} = Coaching.build_plan(alex_id, today)
+  template_ids =
+    for name <- ["Foundational full-body", "Foundational full-body B"] do
+      %WorkoutTemplate{id: id} = Repo.get_by(WorkoutTemplate, user_id: alex_id, name: name)
+      id
+    end
+
+  {:ok, _plan} = Coaching.build_plan(alex_id, today, Repo, template_ids)
 end
 
 ensure_template_guidance.(local_id, "Full-body strength A", %{

@@ -4,7 +4,20 @@ defmodule TedWeb.CoachingController do
 
   alias OpenApiSpex.Schema
   alias Ted.Operations
-  alias TedWeb.ApiSchemas.{CheckIn, GenericObject, Meal, Profile, Workout, WorkoutTemplate}
+
+  alias TedWeb.ApiSchemas.{
+    BuildPlan,
+    CheckIn,
+    Error,
+    FinishWorkout,
+    GenericObject,
+    Meal,
+    Profile,
+    StartWorkout,
+    Workout,
+    WorkoutSet,
+    WorkoutTemplate
+  }
 
   tags ["Coaching"]
   security [%{"bearerAuth" => []}]
@@ -12,11 +25,20 @@ defmodule TedWeb.CoachingController do
   plug TedWeb.ApiAuth, [scopes: ["profile:read"]] when action == :get_profile
   plug TedWeb.ApiAuth, [scopes: ["profile:write"]] when action == :update_profile
   plug TedWeb.ApiAuth, [scopes: ["check_ins:write"]] when action == :record_check_in
-  plug TedWeb.ApiAuth, [scopes: ["workouts:write"]] when action == :log_workout
+
+  plug TedWeb.ApiAuth,
+       [scopes: ["workouts:write"]]
+       when action in [:log_workout, :start_workout, :record_workout_set, :finish_workout]
 
   plug TedWeb.ApiAuth,
        [scopes: ["workouts:read"]]
-       when action in [:list_workout_templates, :get_workout_template, :prepare_workout]
+       when action in [
+              :get_current_workout,
+              :get_workout,
+              :list_workout_templates,
+              :get_workout_template,
+              :prepare_workout
+            ]
 
   plug TedWeb.ApiAuth, [scopes: ["workouts:write"]] when action == :save_workout_template
   plug TedWeb.ApiAuth, [scopes: ["meals:write"]] when action == :log_meal
@@ -48,8 +70,76 @@ defmodule TedWeb.CoachingController do
   operation :log_workout,
     operation_id: "log_workout",
     summary: "Log a completed workout",
+    description:
+      "Legacy completed-session logging only. Use start_workout, record_workout_set, and finish_workout for live sessions; never log_workout to save live progress.",
     request_body: {"Completed workout", "application/json", Workout},
     responses: [created: {"Recorded workout", "application/json", Workout}]
+
+  operation :start_workout,
+    operation_id: "start_workout",
+    summary: "Resume a workout or start the next assigned plan template",
+    description:
+      "Read get_today_plan first. Resumes the active session, or snapshots the next assigned template with its ordered movements. Arbitrary or substituted movements are not accepted.",
+    request_body: {"Optional workout date", "application/json", StartWorkout},
+    responses: [
+      ok: {"Started or resumed workout", "application/json", Workout},
+      conflict: {"Workout not ready or safety hold", "application/json", Error},
+      unprocessable_entity: {"Invalid arguments", "application/json", Error}
+    ]
+
+  operation :get_current_workout,
+    operation_id: "get_current_workout",
+    summary: "Read the current active workout",
+    responses: [
+      ok: {"Current workout", "application/json", Workout},
+      not_found: {"No active workout", "application/json", Error}
+    ]
+
+  operation :get_workout,
+    operation_id: "get_workout",
+    summary: "Read one workout and its progress",
+    parameters: [
+      id: [in: :path, schema: %Schema{type: :string, format: :uuid}, required: true]
+    ],
+    responses: [
+      ok: {"Workout", "application/json", Workout},
+      not_found: {"Workout not found", "application/json", Error}
+    ]
+
+  operation :record_workout_set,
+    operation_id: "record_workout_set",
+    summary: "Record or replace one actual workout set",
+    description:
+      "Record each set immediately. The same movement_id and set_number replace the existing actual entry idempotently, without altering prescribed movements. Meaningful pain stops progression; respect progress.safety_hold.",
+    parameters: [
+      id: [in: :path, schema: %Schema{type: :string, format: :uuid}, required: true]
+    ],
+    request_body:
+      {"Actual set for the workout identified by the path", "application/json", WorkoutSet},
+    responses: [
+      ok: {"Workout with recorded set", "application/json", Workout},
+      not_found: {"Workout not found", "application/json", Error},
+      conflict: {"Workout not in progress or safety hold", "application/json", Error},
+      unprocessable_entity: {"Invalid set", "application/json", Error}
+    ]
+
+  operation :finish_workout,
+    operation_id: "finish_workout",
+    summary: "Complete or cancel a workout",
+    description:
+      "Finish only at the end. Completion requires every prescribed set. Repeating the same terminal status is idempotent.",
+    parameters: [
+      id: [in: :path, schema: %Schema{type: :string, format: :uuid}, required: true]
+    ],
+    request_body:
+      {"Final workout status and optional summary", "application/json", FinishWorkout},
+    responses: [
+      ok: {"Finished workout", "application/json", Workout},
+      not_found: {"Workout not found", "application/json", Error},
+      conflict:
+        {"Workout incomplete, not in progress, or safety hold", "application/json", Error},
+      unprocessable_entity: {"Invalid finish", "application/json", Error}
+    ]
 
   operation :list_workout_templates,
     operation_id: "list_workout_templates",
@@ -109,7 +199,12 @@ defmodule TedWeb.CoachingController do
   operation :build_plan,
     operation_id: "build_plan",
     summary: "Build a new coaching plan version",
-    parameters: [date: [in: :query, type: :string, required: false]],
+    description:
+      "Accepts date and an ordered workout_template_ids array in the request body. Selected templates are snapshotted into the plan; omission preserves active plan assignments or leaves the plan unconfigured. When get_today_plan reports needs_configuration, list templates and ask the person which ordered sequence to assign. The query date remains supported for existing clients; a body date takes precedence.",
+    parameters: [
+      date: [in: :query, schema: %Schema{type: :string, format: :date}, required: false]
+    ],
+    request_body: {"Plan date and ordered template assignments", "application/json", BuildPlan},
     responses: [created: {"New coaching plan", "application/json", GenericObject}]
 
   operation :review_plan,
@@ -140,6 +235,11 @@ defmodule TedWeb.CoachingController do
   def update_profile(conn, params), do: execute(conn, "update_profile", params)
   def record_check_in(conn, params), do: execute(conn, "record_check_in", params)
   def log_workout(conn, params), do: execute(conn, "log_workout", params, 201)
+  def start_workout(conn, params), do: execute(conn, "start_workout", params)
+  def get_current_workout(conn, _params), do: execute(conn, "get_current_workout", %{})
+  def get_workout(conn, params), do: execute(conn, "get_workout", params)
+  def record_workout_set(conn, params), do: execute(conn, "record_workout_set", params)
+  def finish_workout(conn, params), do: execute(conn, "finish_workout", params)
   def list_workout_templates(conn, _params), do: execute(conn, "list_workout_templates", %{})
   def get_workout_template(conn, params), do: execute(conn, "get_workout_template", params)
   def save_workout_template(conn, params), do: execute(conn, "save_workout_template", params)

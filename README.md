@@ -27,7 +27,7 @@ Ted is deliberately headless. The small browser surface exists for account claim
 
 1. **Set the destination.** Record one or more measurable objectives and their priority.
 2. **Describe the constraints.** Add training experience, available days, equipment, dietary preferences, and other relevant facts.
-3. **Log what happened.** Record body-weight and readiness check-ins, meals, and completed workouts.
+3. **Log what happened.** Record body-weight and readiness check-ins, meals, and each workout set as it happens. Resume an unfinished workout without losing progress.
 4. **Ask for today.** Ted combines the active plan with recent readiness to return the next training, nutrition, and recovery actions.
 5. **Review the trend.** After a meaningful window, Ted explains whether the plan should stay steady or change one variable.
 
@@ -53,11 +53,21 @@ The shared operation catalog includes tools to:
 - set and list objectives;
 - record check-ins, meals, and workouts;
 - create, refine, and prepare named workout templates with configuration and visual references;
+- assign an ordered workout sequence to a plan, start or resume a session, record each set, and complete or cancel it;
 - ask for a preference-aware meal suggestion;
 - build, read, and review a plan;
 - read today's actions and recent progress.
 
-Workout templates preserve a name, ordered movement configuration, a workout overview image, and a dedicated image, alternative text, and direct video link for every movement. The included templates use original images served from the same Ted installation. The [exercise catalog](docs/exercise-catalog.md) records every included movement and its visual and video reference. A client can use `prepare_workout` to show the active movement's configuration, image, and video link during a session, then pass the returned template identifier and version to `log_workout` so the completed record retains its provenance. Images and linked videos are recognition and learning aids, not a substitute for qualified instruction. Stop if a movement is painful.
+Workout templates preserve a name, ordered movement configuration, a workout overview image, and a dedicated image, alternative text, and direct video link for every movement. The included templates use original images served from the same Ted installation. The [exercise catalog](docs/exercise-catalog.md) records every included movement and its visual and video reference. Images and linked videos are recognition and learning aids, not a substitute for qualified instruction. Stop if a movement is painful.
+
+For workout coaching, clients follow this sequence:
+
+1. Call `get_today_plan`. If it returns `needs_configuration`, use `list_workout_templates` and agree on an ordered sequence with the person. Pass its identifiers as `workout_template_ids` to `build_plan`. Existing plans without assigned workouts need this one-time configuration; Ted does not guess exercises or assign every saved template.
+2. Call `get_current_workout` to resume, or `start_workout` to persist the next assigned session. The plan snapshots template versions and ordered prescriptions; later template or plan edits do not change an ongoing session.
+3. Call `record_workout_set` after each set with the workout `id`, prescribed `movement_id`, `set_number`, and actual `repetitions`. Add `load_kg`, exertion, pain, and notes when reported. Each response includes `progress`, remaining sets, and the next movement's configuration and visual references. Repeating a movement and set number replaces its observation without duplicating it.
+4. Call `finish_workout` with `status: "completed"` when all sets are recorded, or `status: "cancelled"` to end early while preserving partial progress. Only completed sessions advance the workout sequence and count toward training frequency. Meaningful pain blocks further progression.
+
+`prepare_workout` remains a read-only preview of a saved template. `log_workout` remains available for already completed sessions, but must not be used to save live progress. Reconnect clients after upgrading so they discover the new tools and coaching instructions.
 
 ### auth.md agents
 

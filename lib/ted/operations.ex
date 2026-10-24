@@ -37,10 +37,49 @@ defmodule Ted.Operations do
       },
       %{
         name: "log_workout",
-        description: "Record a completed strength or conditioning session.",
+        description:
+          "Record an already completed strength or conditioning session through the legacy workflow. For live sessions use start_workout, record_workout_set, and finish_workout instead; never use log_workout to save live progress.",
         scope: "workouts:write",
         inputSchema: workout_schema(),
         annotations: %{idempotentHint: false}
+      },
+      %{
+        name: "start_workout",
+        description:
+          "Resume the current active workout or start the next assigned plan template. Read get_today_plan first and follow its ordered prescribed movements without inventing or substituting movements.",
+        scope: "workouts:write",
+        inputSchema: object_schema(%{"performed_on" => date_schema()}),
+        annotations: %{idempotentHint: true}
+      },
+      %{
+        name: "get_current_workout",
+        description: "Read the current active workout and its progress, or return not_found.",
+        scope: "workouts:read",
+        inputSchema: object_schema(),
+        annotations: %{readOnlyHint: true}
+      },
+      %{
+        name: "get_workout",
+        description: "Read one workout with its prescribed movements, actual sets, and progress.",
+        scope: "workouts:read",
+        inputSchema: object_schema(%{"id" => uuid_schema()}, ["id"]),
+        annotations: %{readOnlyHint: true}
+      },
+      %{
+        name: "record_workout_set",
+        description:
+          "Record each actual set immediately. The same movement_id and set_number replace the previous entry without changing prescribed movements. Meaningful pain stops progression; respect the returned safety_hold.",
+        scope: "workouts:write",
+        inputSchema: workout_set_schema(),
+        annotations: %{idempotentHint: true}
+      },
+      %{
+        name: "finish_workout",
+        description:
+          "Finish a workout as completed or cancelled only at the end. Completion requires all prescribed sets; repeating the same terminal status is idempotent.",
+        scope: "workouts:write",
+        inputSchema: finish_workout_schema(),
+        annotations: %{idempotentHint: true}
       },
       %{
         name: "list_workout_templates",
@@ -113,9 +152,18 @@ defmodule Ted.Operations do
       %{
         name: "build_plan",
         description:
-          "Build a new plan version from the profile, active objectives, and latest weight record.",
+          "Build a new plan version from the profile, active objectives, and latest weight record. Snapshots workout_template_ids in the supplied order; omission preserves active plan assignments or leaves the plan unconfigured. If get_today_plan reports needs_configuration, list templates and ask the person which ordered sequence to assign.",
         scope: "plans:write",
-        inputSchema: object_schema(%{"date" => date_schema()}),
+        inputSchema:
+          object_schema(%{
+            "date" => date_schema(),
+            "workout_template_ids" =>
+              Map.merge(array_schema(uuid_schema()), %{
+                minItems: 1,
+                maxItems: 14,
+                uniqueItems: true
+              })
+          }),
         annotations: %{idempotentHint: false}
       },
       %{
@@ -174,6 +222,21 @@ defmodule Ted.Operations do
   def call("log_workout", arguments, repo, authorization) when is_map(arguments),
     do: with_user(authorization, &Coaching.log_workout(&1, arguments, repo))
 
+  def call("start_workout", arguments, repo, authorization) when is_map(arguments),
+    do: with_user(authorization, &Coaching.start_workout(&1, arguments, repo))
+
+  def call("get_current_workout", _arguments, repo, authorization),
+    do: with_user(authorization, &Coaching.get_current_workout(&1, repo))
+
+  def call("get_workout", %{"id" => id}, repo, authorization) when is_binary(id),
+    do: with_user(authorization, &Coaching.get_workout(&1, id, repo))
+
+  def call("record_workout_set", arguments, repo, authorization) when is_map(arguments),
+    do: with_user(authorization, &Coaching.record_workout_set(&1, arguments, repo))
+
+  def call("finish_workout", arguments, repo, authorization) when is_map(arguments),
+    do: with_user(authorization, &Coaching.finish_workout(&1, arguments, repo))
+
   def call("list_workout_templates", _arguments, repo, authorization),
     do: with_user(authorization, &Coaching.list_workout_templates(&1, repo))
 
@@ -209,7 +272,10 @@ defmodule Ted.Operations do
 
   def call("build_plan", arguments, repo, authorization) when is_map(arguments) do
     with {:ok, date} <- optional_date(Map.get(arguments, "date")) do
-      with_user(authorization, &Coaching.build_plan(&1, date, repo))
+      with_user(
+        authorization,
+        &Coaching.build_plan(&1, date, repo, Map.get(arguments, "workout_template_ids"))
+      )
     end
   end
 
@@ -285,6 +351,35 @@ defmodule Ted.Operations do
         "workout_template_version" => integer_schema(1, 1_000_000)
       },
       ["name"]
+    )
+  end
+
+  defp workout_set_schema do
+    object_schema(
+      %{
+        "id" => uuid_schema(),
+        "movement_id" => string_schema(),
+        "set_number" => integer_schema(1, 10),
+        "repetitions" => integer_schema(0, 1_000),
+        "load_kg" => number_schema(0, 1_000),
+        "perceived_exertion" => integer_schema(1, 10),
+        "pain" => integer_schema(0, 10),
+        "notes" => string_schema()
+      },
+      ["id", "movement_id", "set_number", "repetitions"]
+    )
+  end
+
+  defp finish_workout_schema do
+    object_schema(
+      %{
+        "id" => uuid_schema(),
+        "status" => enum_schema(~w(completed cancelled)),
+        "duration_minutes" => integer_schema(1, 480),
+        "perceived_exertion" => integer_schema(1, 10),
+        "notes" => string_schema()
+      },
+      ["id", "status"]
     )
   end
 
@@ -382,6 +477,7 @@ defmodule Ted.Operations do
   end
 
   defp string_schema, do: %{type: "string"}
+  defp uuid_schema, do: %{type: "string", format: "uuid"}
   defp date_schema, do: %{type: "string", format: "date"}
   defp enum_schema(values), do: %{type: "string", enum: values}
   defp array_schema(items), do: %{type: "array", items: items}

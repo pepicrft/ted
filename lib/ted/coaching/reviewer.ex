@@ -35,12 +35,16 @@ defmodule Ted.Coaching.Reviewer do
       "reviewed_on" => Date.to_iso8601(date),
       "plan_version" => plan.version,
       "check_in_count" => length(check_ins),
-      "workout_count" => length(workouts),
+      "workout_count" => Enum.count(workouts, &(&1.status == "completed")),
       "average_energy" => average(energy_values),
       "average_soreness" => average(soreness_values),
       "average_nutrition_adherence" => average(adherence_values),
       "weight_change_percent_per_week" => weight_change_rate(check_ins),
-      "pain_signal" => Enum.any?(check_ins, &((&1.pain || 0) >= 4)),
+      "pain_signal" =>
+        Enum.any?(check_ins, &((&1.pain || 0) >= 4)) or
+          Enum.any?(workouts, fn workout ->
+            Enum.any?(workout.completed_sets, &((&1["pain"] || 0) >= 4))
+          end),
       "low_recovery" => low_recovery?(energy_values, soreness_values)
     }
   end

@@ -97,6 +97,7 @@ defmodule Ted.Coaching.PlanBuilder do
       "equipment" => profile.equipment,
       "default_repetitions_in_reserve" => 2,
       "volume_multiplier" => 1.0,
+      "workout_templates" => [],
       "progression" =>
         "Add a small amount of load after every prescribed repetition is completed with clean technique and about two repetitions still possible."
     }
