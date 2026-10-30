@@ -59,7 +59,7 @@ defmodule Ted.MixProject do
       {:telemetry_poller, "~> 1.0"},
       {:gen_smtp, "~> 1.3"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
-      {:mimic, "~> 1.7", only: :test},
+      {:mimic, "~> 2.0", only: :test},
       {:quokka, "~> 2.13", only: [:dev, :test], runtime: false}
     ]
   end
